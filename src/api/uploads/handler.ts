@@ -20,7 +20,7 @@ import {
   findUpload,
   saveUpload,
   updateUpload,
-} from "../../db/json.ts";
+} from "../../db/memory.ts";
 import { bucketName, isMockStorage, s3Client } from "../../storage/r2.ts";
 import {
   abortMockMultipartUpload,

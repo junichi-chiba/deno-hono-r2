@@ -2,8 +2,8 @@ import { Hono } from "hono";
 import { api } from "./api/index.ts";
 import "./cron.ts";
 import { healthRoutes } from "./routes/health.ts";
-import { welcomeRoutes } from "./welcome.tsx";
-import { objectPageRoutes } from "./objects.tsx";
+import { welcomeRoutes } from "./pages/welcome.tsx";
+import { objectPageRoutes } from "./pages/objects.tsx";
 
 const app = new Hono()
   .route("/", welcomeRoutes)
