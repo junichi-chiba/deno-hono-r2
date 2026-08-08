@@ -8,6 +8,13 @@ import {
   readLocalObject,
   writeLocalObject,
 } from "./local.ts";
+import type {
+  ObjectHead,
+  ObjectStorage,
+  SignedPartUploadInput,
+  SignedUploadInput,
+  StoredObject,
+} from "../types.ts";
 
 const multipartDirectory = "tmp/db/objects/.multipart";
 
@@ -155,4 +162,75 @@ export async function abortMockMultipartUpload(
   uploadId: string,
 ): Promise<void> {
   await removeUploadDirectory(uploadId);
+}
+
+export class FileObjectStorage implements ObjectStorage {
+  readonly isMock = true;
+
+  async putObject(
+    key: string,
+    body: Uint8Array,
+    contentType: string,
+  ): Promise<string> {
+    return await putMockObject(key, body, contentType);
+  }
+
+  async getObject(key: string): Promise<StoredObject | undefined> {
+    const body = await readLocalObject(key);
+    if (!body) return undefined;
+    return {
+      body,
+      ContentLength: body.byteLength,
+      ContentType: (await findObjectMetadata(key))?.contentType ??
+        "application/octet-stream",
+    };
+  }
+
+  async headObject(key: string): Promise<ObjectHead | undefined> {
+    return await headMockObject(key);
+  }
+
+  async deleteObject(key: string): Promise<void> {
+    await deleteMockObject(key);
+  }
+
+  async createMultipartUpload(
+    key: string,
+    contentType: string,
+  ): Promise<string> {
+    return await createMockMultipartUpload(key, contentType);
+  }
+
+  async uploadPart(
+    _key: string,
+    uploadId: string,
+    partNumber: number,
+    body: Uint8Array,
+  ): Promise<string> {
+    return await uploadMockPart(uploadId, partNumber, body);
+  }
+
+  async completeMultipartUpload(
+    _key: string,
+    uploadId: string,
+    parts: { partNumber: number; etag: string }[],
+  ): Promise<void> {
+    await completeMockMultipartUpload(uploadId, parts);
+  }
+
+  async abortMultipartUpload(_key: string, uploadId: string): Promise<void> {
+    await abortMockMultipartUpload(uploadId);
+  }
+
+  createSignedUploadUrl(
+    _input: SignedUploadInput,
+  ): Promise<string> {
+    throw new Error("Mock storage uses the mock upload routes");
+  }
+
+  createSignedPartUploadUrl(
+    _input: SignedPartUploadInput,
+  ): Promise<string> {
+    throw new Error("Mock storage uses the mock upload routes");
+  }
 }

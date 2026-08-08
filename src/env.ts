@@ -49,7 +49,17 @@ if (!result.success) {
 }
 
 export const env = result.data;
-export const maxUploadBytes = env.CLOUDFLARE_R2_MAX_UPLOAD_BYTES;
-export const uploadUrlTtlMs = env.CLOUDFLARE_R2_UPLOAD_URL_TTL_MS;
-export const staleUploadTtlMs = env.CLOUDFLARE_R2_STALE_UPLOAD_TTL_MS;
-export const maxUploadLifetimeMs = env.CLOUDFLARE_R2_MAX_UPLOAD_LIFETIME_MS;
+
+export type AppConfig = {
+  maxUploadBytes: number;
+  uploadUrlTtlMs: number;
+  staleUploadTtlMs: number;
+  maxUploadLifetimeMs: number;
+};
+
+export const appConfig: AppConfig = {
+  maxUploadBytes: env.CLOUDFLARE_R2_MAX_UPLOAD_BYTES,
+  uploadUrlTtlMs: env.CLOUDFLARE_R2_UPLOAD_URL_TTL_MS,
+  staleUploadTtlMs: env.CLOUDFLARE_R2_STALE_UPLOAD_TTL_MS,
+  maxUploadLifetimeMs: env.CLOUDFLARE_R2_MAX_UPLOAD_LIFETIME_MS,
+};

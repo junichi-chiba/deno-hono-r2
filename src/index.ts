@@ -1,16 +1,20 @@
-import { Hono } from "hono";
-import { api } from "./api/index.ts";
-import "./cron.ts";
-import { healthRoutes } from "./routes/health.ts";
-import { welcomeRoutes } from "./pages/welcome.tsx";
-import { objectPageRoutes } from "./pages/objects.tsx";
+import { createApp, createUploadRepository } from "./app.ts";
+import { appConfig } from "./env.ts";
+import { createObjectStorage } from "./storage/factory.ts";
+import { registerCron } from "./cron.ts";
 
-const app = new Hono()
-  .route("/", welcomeRoutes)
-  .route("/", objectPageRoutes)
-  .route("/health", healthRoutes)
-  .route("/api", api);
+const objectStorage = createObjectStorage();
+const uploadRepository = createUploadRepository();
+const dependencies = {
+  objectStorage,
+  uploadRepository,
+  config: appConfig,
+};
+const app = createApp(dependencies);
 
 export default app;
 
-if (import.meta.main) Deno.serve(app.fetch);
+if (import.meta.main) {
+  registerCron(dependencies);
+  Deno.serve(app.fetch);
+}

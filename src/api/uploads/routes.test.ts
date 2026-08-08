@@ -1,18 +1,29 @@
 import { assertEquals, assertMatch } from "@std/assert";
-import { Hono } from "hono";
+import { createApp as createApplication } from "../../app.ts";
+import { MemoryUploadRepository } from "../../db/memory.ts";
+import { MemoryObjectStorage } from "../../storage/mock/memory.ts";
+import type { AppConfig } from "../../env.ts";
+import type { ObjectStorage } from "../../storage/types.ts";
 
-async function createApp(): Promise<Hono> {
-  const { uploadRoutes } = await import("./routes.ts");
-  const { objectRoutes } = await import("../objects/routes.ts");
-  return new Hono()
-    .route("/api/objects", objectRoutes)
-    .route("/api/uploads", uploadRoutes);
+function createApp(): ReturnType<typeof createApplication> {
+  const objectStorage: ObjectStorage = new MemoryObjectStorage();
+  const config: AppConfig = {
+    maxUploadBytes: 1024 * 1024,
+    uploadUrlTtlMs: 30 * 60 * 1000,
+    staleUploadTtlMs: 30 * 60 * 1000,
+    maxUploadLifetimeMs: 60 * 60 * 1000,
+  };
+  return createApplication({
+    objectStorage,
+    uploadRepository: new MemoryUploadRepository(),
+    config,
+  });
 }
 
 Deno.test({
   name: "POST /api/uploads rejects an invalid request",
   async fn(): Promise<void> {
-    const response = await (await createApp()).request("/api/uploads", {
+    const response = await createApp().request("/api/uploads", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ size: 0, contentType: "" }),
@@ -25,7 +36,7 @@ Deno.test({
 Deno.test({
   name: "single upload completes through its mock signed URL",
   async fn(): Promise<void> {
-    const app = await createApp();
+    const app = createApp();
     const response = await app.request("/api/uploads", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -73,7 +84,7 @@ Deno.test({
 Deno.test({
   name: "multipart upload completes through mock part endpoints",
   async fn(): Promise<void> {
-    const app = await createApp();
+    const app = createApp();
     const response = await app.request("/api/uploads", {
       method: "POST",
       headers: { "content-type": "application/json" },

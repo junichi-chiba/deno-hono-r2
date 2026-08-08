@@ -1,1 +1,1 @@
-export { uploadRoutes } from "./routes.ts";
+export { createUploadRoutes } from "./routes.ts";

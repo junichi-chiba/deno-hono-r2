@@ -1,58 +1,64 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
+import type { AppConfig } from "../../env.ts";
+import type { ObjectStorage } from "../../storage/types.ts";
+import type { UploadRepository } from "../../upload-repository.ts";
+import { createUploadHandlers } from "./handler.ts";
 import {
-  handleAbortUpload,
-  handleCompleteUpload,
-  handleCreatePartUpload,
-  handleCreateUpload,
-  handleExtendVerification,
-  handleMockPartPut,
-  handleMockSinglePut,
-} from "./handler.ts";
-import {
-  CreateUploadSchema,
+  createCreateUploadSchema,
   UploadIdSchema,
   UploadPartParamsSchema,
 } from "./schema.ts";
 
-export const uploadRoutes = new Hono()
-  .post(
-    "/",
-    zValidator("json", CreateUploadSchema),
-    handleCreateUpload,
-  )
-  .post(
-    "/:uploadId/complete",
-    zValidator("param", UploadIdSchema),
-    handleCompleteUpload,
-  )
-  .post(
-    "/:uploadId/parts/:partNumber",
-    zValidator("param", UploadPartParamsSchema),
-    handleCreatePartUpload,
-  )
-  .post(
-    "/:uploadId/abort",
-    zValidator("param", UploadIdSchema),
-    handleAbortUpload,
-  )
-  .delete(
-    "/:uploadId",
-    zValidator("param", UploadIdSchema),
-    handleAbortUpload,
-  )
-  .post(
-    "/:uploadId/extend",
-    zValidator("param", UploadIdSchema),
-    handleExtendVerification,
-  )
-  .put(
-    "/mock/:uploadId",
-    zValidator("param", UploadIdSchema),
-    handleMockSinglePut,
-  )
-  .put(
-    "/mock/:uploadId/parts/:partNumber",
-    zValidator("param", UploadPartParamsSchema),
-    handleMockPartPut,
-  );
+export function createUploadRoutes(
+  storage: ObjectStorage,
+  uploads: UploadRepository,
+  config: AppConfig,
+): Hono {
+  const handlers = createUploadHandlers({
+    objectStorage: storage,
+    uploadRepository: uploads,
+    config,
+  });
+  return new Hono()
+    .post(
+      "/",
+      zValidator("json", createCreateUploadSchema(config.maxUploadBytes)),
+      handlers.handleCreateUpload,
+    )
+    .post(
+      "/:uploadId/complete",
+      zValidator("param", UploadIdSchema),
+      handlers.handleCompleteUpload,
+    )
+    .post(
+      "/:uploadId/parts/:partNumber",
+      zValidator("param", UploadPartParamsSchema),
+      handlers.handleCreatePartUpload,
+    )
+    .post(
+      "/:uploadId/abort",
+      zValidator("param", UploadIdSchema),
+      handlers.handleAbortUpload,
+    )
+    .delete(
+      "/:uploadId",
+      zValidator("param", UploadIdSchema),
+      handlers.handleAbortUpload,
+    )
+    .post(
+      "/:uploadId/extend",
+      zValidator("param", UploadIdSchema),
+      handlers.handleExtendVerification,
+    )
+    .put(
+      "/mock/:uploadId",
+      zValidator("param", UploadIdSchema),
+      handlers.handleMockSinglePut,
+    )
+    .put(
+      "/mock/:uploadId/parts/:partNumber",
+      zValidator("param", UploadPartParamsSchema),
+      handlers.handleMockPartPut,
+    );
+}

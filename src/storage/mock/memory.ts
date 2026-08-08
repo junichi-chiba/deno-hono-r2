@@ -1,4 +1,12 @@
-export type MultipartPart = {
+import type {
+  ObjectHead,
+  ObjectStorage,
+  SignedPartUploadInput,
+  SignedUploadInput,
+  StoredObject,
+} from "../types.ts";
+
+type MultipartPart = {
   partNumber: number;
   etag: string;
 };
@@ -27,7 +35,10 @@ export class MemoryMultipartStorage {
     return etag;
   }
 
-  completeMultipartUpload(uploadId: string, parts: MultipartPart[]): void {
+  completeMultipartUpload(
+    uploadId: string,
+    parts: MultipartPart[],
+  ): { key: string; object: Uint8Array } {
     const upload = this.#uploads.get(uploadId);
     if (!upload) throw new Error("Multipart upload not found");
 
@@ -49,6 +60,7 @@ export class MemoryMultipartStorage {
 
     this.#objects.set(upload.key, object);
     this.#uploads.delete(uploadId);
+    return { key: upload.key, object };
   }
 
   abortMultipartUpload(uploadId: string): void {
@@ -58,4 +70,107 @@ export class MemoryMultipartStorage {
   get(key: string): Uint8Array | undefined {
     return this.#objects.get(key)?.slice();
   }
+}
+
+export class MemoryObjectStorage implements ObjectStorage {
+  readonly isMock = true;
+  readonly #multipart = new MemoryMultipartStorage();
+  readonly #multipartContentTypes = new Map<string, string>();
+  readonly #objects = new Map<
+    string,
+    { body: Uint8Array; contentType: string }
+  >();
+
+  async putObject(
+    key: string,
+    body: Uint8Array,
+    contentType: string,
+  ): Promise<string> {
+    this.#objects.set(key, { body: body.slice(), contentType });
+    return await bodyEtag(body);
+  }
+
+  getObject(key: string): Promise<StoredObject | undefined> {
+    const object = this.#objects.get(key);
+    if (!object) return Promise.resolve(undefined);
+    return Promise.resolve({
+      body: object.body.slice(),
+      ContentLength: object.body.byteLength,
+      ContentType: object.contentType,
+    });
+  }
+
+  headObject(key: string): Promise<ObjectHead | undefined> {
+    const object = this.#objects.get(key);
+    if (!object) return Promise.resolve(undefined);
+    return Promise.resolve({
+      ContentLength: object.body.byteLength,
+      ContentType: object.contentType,
+    });
+  }
+
+  deleteObject(key: string): Promise<void> {
+    this.#objects.delete(key);
+    return Promise.resolve();
+  }
+
+  createMultipartUpload(
+    key: string,
+    contentType: string,
+  ): Promise<string> {
+    const uploadId = this.#multipart.createMultipartUpload(key);
+    this.#multipartContentTypes.set(uploadId, contentType);
+    return Promise.resolve(uploadId);
+  }
+
+  uploadPart(
+    _key: string,
+    uploadId: string,
+    partNumber: number,
+    body: Uint8Array,
+  ): Promise<string> {
+    return Promise.resolve(
+      this.#multipart.uploadPart(uploadId, partNumber, body),
+    );
+  }
+
+  completeMultipartUpload(
+    _key: string,
+    uploadId: string,
+    parts: MultipartPart[],
+  ): Promise<void> {
+    const upload = this.#multipart.completeMultipartUpload(uploadId, parts);
+    this.#objects.set(upload.key, {
+      body: upload.object,
+      contentType: this.#multipartContentTypes.get(uploadId) ??
+        "application/octet-stream",
+    });
+    this.#multipartContentTypes.delete(uploadId);
+    return Promise.resolve();
+  }
+
+  abortMultipartUpload(_key: string, uploadId: string): Promise<void> {
+    this.#multipart.abortMultipartUpload(uploadId);
+    this.#multipartContentTypes.delete(uploadId);
+    return Promise.resolve();
+  }
+
+  createSignedUploadUrl(_input: SignedUploadInput): Promise<string> {
+    throw new Error("Mock storage uses the mock upload routes");
+  }
+
+  createSignedPartUploadUrl(
+    _input: SignedPartUploadInput,
+  ): Promise<string> {
+    throw new Error("Mock storage uses the mock upload routes");
+  }
+}
+
+async function bodyEtag(body: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", body.slice());
+  return `"${
+    [...new Uint8Array(digest)].map((byte) =>
+      byte.toString(16).padStart(2, "0")
+    ).join("")
+  }"`;
 }

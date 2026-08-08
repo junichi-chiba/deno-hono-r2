@@ -21,33 +21,35 @@ const UploadRecordSchema = z.object({
 });
 
 export type UploadRecord = z.infer<typeof UploadRecordSchema>;
-type UploadRecordInput = z.input<typeof UploadRecordSchema>;
+export type UploadRecordInput = z.input<typeof UploadRecordSchema>;
 
-const uploads = new Map<string, UploadRecord>();
+export class MemoryUploadRepository {
+  readonly #uploads = new Map<string, UploadRecord>();
 
-export function saveUpload(upload: UploadRecordInput): UploadRecord {
-  const validatedUpload = UploadRecordSchema.parse(upload);
-  uploads.set(validatedUpload.id, validatedUpload);
-  return validatedUpload;
-}
+  save(upload: UploadRecordInput): UploadRecord {
+    const validatedUpload = UploadRecordSchema.parse(upload);
+    this.#uploads.set(validatedUpload.id, validatedUpload);
+    return validatedUpload;
+  }
 
-export function findUpload(id: string): UploadRecord | undefined {
-  return uploads.get(id);
-}
+  find(id: string): UploadRecord | undefined {
+    return this.#uploads.get(id);
+  }
 
-export function updateUpload(
-  id: string,
-  update: Partial<UploadRecord>,
-): UploadRecord | undefined {
-  const upload = uploads.get(id);
-  if (!upload) return undefined;
-  const updated = UploadRecordSchema.parse({ ...upload, ...update });
-  uploads.set(id, updated);
-  return updated;
-}
+  update(
+    id: string,
+    update: Partial<UploadRecord>,
+  ): UploadRecord | undefined {
+    const upload = this.#uploads.get(id);
+    if (!upload) return undefined;
+    const updated = UploadRecordSchema.parse({ ...upload, ...update });
+    this.#uploads.set(id, updated);
+    return updated;
+  }
 
-export function findExpiredUploads(now = Date.now()): UploadRecord[] {
-  return [...uploads.values()].filter(
-    (upload) => upload.status === "pending" && upload.lastActivityAt <= now,
-  );
+  findExpired(now = Date.now()): UploadRecord[] {
+    return [...this.#uploads.values()].filter(
+      (upload) => upload.status === "pending" && upload.lastActivityAt <= now,
+    );
+  }
 }

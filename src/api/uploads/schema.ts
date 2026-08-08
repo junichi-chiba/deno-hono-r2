@@ -1,11 +1,14 @@
 import { z } from "zod";
-import { maxUploadBytes } from "../../env.ts";
 
-export const CreateUploadSchema = z.object({
-  size: z.number().int().positive().max(maxUploadBytes),
-  contentType: z.string().trim().min(1).max(255),
-  strategy: z.enum(["auto", "single", "multipart"]).default("multipart"),
-});
+export function createCreateUploadSchema(
+  maxUploadBytes: number,
+): z.ZodType {
+  return z.object({
+    size: z.number().int().positive().max(maxUploadBytes),
+    contentType: z.string().trim().min(1).max(255),
+    strategy: z.enum(["auto", "single", "multipart"]).default("multipart"),
+  });
+}
 
 export const UploadIdSchema = z.object({
   uploadId: z.uuid(),
