@@ -3,9 +3,9 @@ import type { AppConfig } from "../../env.ts";
 import type { ObjectStorage } from "../../storage/interfaces.ts";
 import type { UploadRepository } from "../../db/upload-repository.ts";
 import { CompleteUploadSchema } from "./schema.ts";
+import type { UploadPart } from "./schema.ts";
 
 type UploadStrategy = "auto" | "single" | "multipart";
-type UploadPart = { partNumber: number; etag: string };
 
 export type UploadDependencies = {
   objectStorage: ObjectStorage;

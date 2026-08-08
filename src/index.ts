@@ -1,4 +1,5 @@
-import { createApp, createUploadRepository } from "./app.ts";
+import { createApp } from "./app.ts";
+import { createUploadRepository } from "./db/create.ts";
 import { appConfig } from "./env.ts";
 import { createStorage } from "./storage/create.ts";
 import { registerCron } from "./cron.ts";

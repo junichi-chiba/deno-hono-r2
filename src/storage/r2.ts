@@ -11,7 +11,7 @@ import {
 } from "s3";
 import { getSignedUrl } from "presigner";
 import type {
-  ObjectMetadata,
+  ObjectInfo,
   ObjectStorage,
   SignedObjectUploadInput,
   SignedUploadPartInput,
@@ -69,7 +69,7 @@ export class R2ObjectStorage implements ObjectStorage {
     }
   }
 
-  async headObject(key: string): Promise<ObjectMetadata | undefined> {
+  async headObject(key: string): Promise<ObjectInfo | undefined> {
     try {
       const result = await this.#client.send(
         new HeadObjectCommand({ Bucket: this.#bucketName, Key: key }),

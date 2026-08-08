@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+export type UploadPart = {
+  partNumber: number;
+  etag: string;
+};
+
 export function createUploadSchema(
   maxUploadBytes: number,
 ): z.ZodType {

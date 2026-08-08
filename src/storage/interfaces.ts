@@ -3,12 +3,12 @@ export type UploadPart = {
   etag: string;
 };
 
-export type ObjectMetadata = {
+export type ObjectInfo = {
   ContentLength: number;
   ContentType?: string;
 };
 
-export type StoredObject = ObjectMetadata & {
+export type StoredObject = ObjectInfo & {
   body: Uint8Array;
 };
 
@@ -33,7 +33,7 @@ export interface ObjectStorage {
     contentType: string,
   ): Promise<string>;
   getObject(key: string): Promise<StoredObject | undefined>;
-  headObject(key: string): Promise<ObjectMetadata | undefined>;
+  headObject(key: string): Promise<ObjectInfo | undefined>;
   deleteObject(key: string): Promise<void>;
   createMultipartUpload(key: string, contentType: string): Promise<string>;
   uploadPart(

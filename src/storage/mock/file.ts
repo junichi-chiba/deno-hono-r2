@@ -7,9 +7,9 @@ import {
   deleteLocalObject,
   readLocalObject,
   writeLocalObject,
-} from "./local.ts";
+} from "./file-store.ts";
 import type {
-  ObjectMetadata,
+  ObjectInfo,
   ObjectStorage,
   SignedObjectUploadInput,
   SignedUploadPartInput,
@@ -186,7 +186,7 @@ export class MockFileStorage implements ObjectStorage {
     };
   }
 
-  async headObject(key: string): Promise<ObjectMetadata | undefined> {
+  async headObject(key: string): Promise<ObjectInfo | undefined> {
     return await headMockObject(key);
   }
 

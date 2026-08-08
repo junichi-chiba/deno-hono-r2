@@ -1,5 +1,5 @@
 import type {
-  ObjectMetadata,
+  ObjectInfo,
   ObjectStorage,
   SignedObjectUploadInput,
   SignedUploadPartInput,
@@ -100,7 +100,7 @@ export class MockMemoryStorage implements ObjectStorage {
     });
   }
 
-  headObject(key: string): Promise<ObjectMetadata | undefined> {
+  headObject(key: string): Promise<ObjectInfo | undefined> {
     const object = this.#objects.get(key);
     if (!object) return Promise.resolve(undefined);
     return Promise.resolve({
