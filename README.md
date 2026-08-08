@@ -18,6 +18,7 @@ mise -E file run dev
 
 It sets `CLOUDFLARE_R2_STORAGE_MODE=mock-file`. Mock signed URLs point back to
 the upload API and store objects and multipart parts under `tmp/db/objects`.
+Object metadata and pending upload records are persisted under `tmp/db`.
 Automated tests use the in-memory environment:
 
 ```sh
@@ -60,10 +61,10 @@ The account and credential variables are only required when storage mode is
 The upload flow uses multipart uploads by default. Pass `strategy: "single"` to
 keep the single PUT flow, or `strategy: "auto"` to explicitly select multipart.
 Multipart clients request a presigned URL for each part, then submit the part
-numbers and ETags to the complete endpoint. The flow stores pending metadata,
-including multipart IDs and completed parts, in an in-memory JSON-shaped POC
-store. It must be replaced with MongoDB Atlas before running multiple Deno
-Deploy instances; the upload handlers already depend on a small storage
-interface that can be swapped for a MongoDB repository.
+numbers and ETags to the complete endpoint. `mock-memory` uses in-memory
+metadata and upload repositories, while `mock-file` uses JSON files under
+`tmp/db`. R2 currently uses the in-memory repositories as a temporary fallback
+until MongoDB Atlas repositories are implemented; this fallback must not be used
+for multiple Deno Deploy instances.
 
 Connect this repository to Deno Deploy with `src/index.ts` as the entrypoint.

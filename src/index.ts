@@ -1,10 +1,14 @@
 import { createApp } from "./app.ts";
-import { createUploadRepository } from "./db/factory.ts";
+import {
+  createObjectMetadataStore,
+  createUploadRepository,
+} from "./db/factory.ts";
 import { appConfig } from "./env.ts";
 import { createStorage } from "./storage/factory.ts";
 import { registerExpiredUploadCleanup } from "./jobs/cleanup.ts";
 
-const objectStorage = createStorage();
+const objectMetadataStore = createObjectMetadataStore();
+const objectStorage = createStorage(objectMetadataStore);
 const uploadRepository = createUploadRepository();
 const dependencies = {
   objectStorage,

@@ -1,5 +1,32 @@
 import { UploadRecordSchema } from "../upload-record.ts";
 import type { UploadRecord, UploadRecordInput } from "../upload-record.ts";
+import type {
+  ObjectMetadata,
+  ObjectMetadataStore,
+} from "../object-metadata.ts";
+import { ObjectMetadataSchema } from "../object-metadata.ts";
+
+export class MemoryObjectMetadataStore implements ObjectMetadataStore {
+  readonly #metadata = new Map<string, ObjectMetadata>();
+
+  save(metadata: ObjectMetadata): Promise<void> {
+    const validatedMetadata = ObjectMetadataSchema.parse(metadata);
+    this.#metadata.set(validatedMetadata.key, validatedMetadata);
+    return Promise.resolve();
+  }
+
+  find(key: string): Promise<ObjectMetadata | undefined> {
+    const metadata = this.#metadata.get(key);
+    return Promise.resolve(metadata ? { ...metadata } : undefined);
+  }
+
+  delete(key: string): Promise<void> {
+    this.#metadata.delete(key);
+    return Promise.resolve();
+  }
+}
+
+export class MemoryObjectMetadataRepository extends MemoryObjectMetadataStore {}
 
 export class MemoryUploadRepository {
   readonly #uploads = new Map<string, UploadRecord>();

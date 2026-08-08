@@ -1,8 +1,4 @@
-import {
-  deleteObjectMetadata,
-  findObjectMetadata,
-  saveObjectMetadata,
-} from "../../db/object-metadata.ts";
+import type { ObjectMetadataStore } from "../../db/object-metadata.ts";
 import {
   deleteLocalObject,
   readLocalObject,
@@ -65,38 +61,43 @@ async function etag(body: Uint8Array): Promise<string> {
 }
 
 export async function putMockObject(
+  metadataStore: ObjectMetadataStore,
   key: string,
   body: Uint8Array,
   contentType: string,
 ): Promise<string> {
   await writeLocalObject(key, body);
   const now = Date.now();
-  await saveObjectMetadata({
+  await metadataStore.save({
     key,
     size: body.byteLength,
     contentType,
     etag: await etag(body),
-    createdAt: (await findObjectMetadata(key))?.createdAt ?? now,
+    createdAt: (await metadataStore.find(key))?.createdAt ?? now,
     updatedAt: now,
   });
-  return (await findObjectMetadata(key))!.etag;
+  return (await metadataStore.find(key))!.etag;
 }
 
 export async function headMockObject(
+  metadataStore: ObjectMetadataStore,
   key: string,
 ): Promise<{ ContentLength: number; ContentType: string } | undefined> {
   const body = await readLocalObject(key);
   if (!body) return undefined;
   return {
     ContentLength: body.byteLength,
-    ContentType: (await findObjectMetadata(key))?.contentType ??
+    ContentType: (await metadataStore.find(key))?.contentType ??
       "application/octet-stream",
   };
 }
 
-export async function deleteMockObject(key: string): Promise<void> {
+export async function deleteMockObject(
+  metadataStore: ObjectMetadataStore,
+  key: string,
+): Promise<void> {
   await deleteLocalObject(key);
-  await deleteObjectMetadata(key);
+  await metadataStore.delete(key);
 }
 
 export async function createMockMultipartUpload(
@@ -131,6 +132,7 @@ export async function uploadMockPart(
 }
 
 export async function completeMockMultipartUpload(
+  metadataStore: ObjectMetadataStore,
   uploadId: string,
   parts: { partNumber: number; etag: string }[],
 ): Promise<void> {
@@ -154,7 +156,7 @@ export async function completeMockMultipartUpload(
     body.set(part, offset);
     offset += part.byteLength;
   }
-  await putMockObject(manifest.key, body, manifest.contentType);
+  await putMockObject(metadataStore, manifest.key, body, manifest.contentType);
   await removeUploadDirectory(uploadId);
 }
 
@@ -167,12 +169,14 @@ export async function abortMockMultipartUpload(
 export class MockFileStorage implements ObjectStorage {
   readonly isMock = true;
 
+  constructor(private readonly metadataStore: ObjectMetadataStore) {}
+
   async putObject(
     key: string,
     body: Uint8Array,
     contentType: string,
   ): Promise<string> {
-    return await putMockObject(key, body, contentType);
+    return await putMockObject(this.metadataStore, key, body, contentType);
   }
 
   async getObject(key: string): Promise<StoredObject | undefined> {
@@ -181,17 +185,17 @@ export class MockFileStorage implements ObjectStorage {
     return {
       body,
       ContentLength: body.byteLength,
-      ContentType: (await findObjectMetadata(key))?.contentType ??
+      ContentType: (await this.metadataStore.find(key))?.contentType ??
         "application/octet-stream",
     };
   }
 
   async headObject(key: string): Promise<ObjectInfo | undefined> {
-    return await headMockObject(key);
+    return await headMockObject(this.metadataStore, key);
   }
 
   async deleteObject(key: string): Promise<void> {
-    await deleteMockObject(key);
+    await deleteMockObject(this.metadataStore, key);
   }
 
   async createMultipartUpload(
@@ -215,7 +219,7 @@ export class MockFileStorage implements ObjectStorage {
     uploadId: string,
     parts: { partNumber: number; etag: string }[],
   ): Promise<void> {
-    await completeMockMultipartUpload(uploadId, parts);
+    await completeMockMultipartUpload(this.metadataStore, uploadId, parts);
   }
 
   async abortMultipartUpload(_key: string, uploadId: string): Promise<void> {
