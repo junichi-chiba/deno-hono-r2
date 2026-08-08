@@ -9,7 +9,7 @@ import {
   deleteLocalObject,
   readLocalObject,
   writeLocalObject,
-} from "../../storage/local.ts";
+} from "../../storage/mock/local.ts";
 
 export async function handleGetObject(c: Context): Promise<Response> {
   const key = c.req.param("key") ?? "";

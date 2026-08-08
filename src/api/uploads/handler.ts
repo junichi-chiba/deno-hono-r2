@@ -21,7 +21,7 @@ import {
   saveUpload,
   updateUpload,
 } from "../../db/json.ts";
-import { bucketName, isMockStorage, s3Client } from "../../storage.ts";
+import { bucketName, isMockStorage, s3Client } from "../../storage/r2.ts";
 import {
   abortMockMultipartUpload,
   completeMockMultipartUpload,
@@ -30,7 +30,7 @@ import {
   headMockObject,
   putMockObject,
   uploadMockPart,
-} from "../../storage/mock.ts";
+} from "../../storage/mock/file.ts";
 import { CompleteUploadSchema } from "./schema.ts";
 
 type UploadStrategy = "auto" | "single" | "multipart";

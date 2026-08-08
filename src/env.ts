@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 const EnvSchema = z.object({
-  CLOUDFLARE_R2_STORAGE_MODE: z.enum(["r2", "mock"]).default("r2"),
+  CLOUDFLARE_R2_STORAGE_MODE: z.enum(["r2", "mock-file", "mock-memory"])
+    .default("r2"),
   CLOUDFLARE_R2_ACCOUNT_ID: z.string().trim().default(""),
   CLOUDFLARE_R2_ACCESS_KEY_ID: z.string().trim().default(""),
   CLOUDFLARE_R2_SECRET_ACCESS_KEY: z.string().trim().default(""),
@@ -20,7 +21,7 @@ const EnvSchema = z.object({
       60 * 60 * 1000,
     ),
 }).superRefine((values, context) => {
-  if (values.CLOUDFLARE_R2_STORAGE_MODE === "mock") return;
+  if (values.CLOUDFLARE_R2_STORAGE_MODE !== "r2") return;
 
   for (
     const name of [

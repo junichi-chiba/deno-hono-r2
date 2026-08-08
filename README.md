@@ -10,7 +10,7 @@ mise install
 mise run dev
 ```
 
-For local testing without R2, set `CLOUDFLARE_R2_STORAGE_MODE = "mock"` in
+For local testing without R2, set `CLOUDFLARE_R2_STORAGE_MODE = "mock-file"` in
 `.mise.local.toml`. Mock signed URLs point back to the upload API and store
 objects and multipart parts under `tmp/db/objects`.
 

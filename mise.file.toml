@@ -1,5 +1,5 @@
 [env]
-CLOUDFLARE_R2_STORAGE_MODE = "mock-memory"
+CLOUDFLARE_R2_STORAGE_MODE = "mock-file"
 CLOUDFLARE_R2_ACCOUNT_ID = "test-account"
 CLOUDFLARE_R2_ACCESS_KEY_ID = "test-access-key"
 CLOUDFLARE_R2_SECRET_ACCESS_KEY = "test-secret-key"
