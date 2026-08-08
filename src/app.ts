@@ -6,7 +6,7 @@ import type { ObjectStorage } from "./storage/types.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { welcomeRoutes } from "./pages/welcome.tsx";
 import { objectPageRoutes } from "./pages/objects.tsx";
-import type { UploadRepository } from "./upload-repository.ts";
+import type { UploadRepository } from "./db/upload-repository.ts";
 
 export type AppDependencies = {
   objectStorage: ObjectStorage;
