@@ -6,7 +6,7 @@ import type {
   StoredObject,
 } from "../interfaces.ts";
 
-import type { UploadPart } from "../../db/upload-record.ts";
+import type { UploadPart } from "../../domain/upload.ts";
 
 type MultipartUpload = {
   key: string;

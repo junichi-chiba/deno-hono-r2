@@ -1,10 +1,10 @@
-import { UploadRecordSchema } from "../upload-record.ts";
-import type { UploadRecord, UploadRecordInput } from "../upload-record.ts";
-import type {
-  ObjectMetadata,
-  ObjectMetadataStore,
-} from "../object-metadata.ts";
-import { ObjectMetadataSchema } from "../object-metadata.ts";
+import { UploadRecordSchema } from "../../domain/upload.ts";
+import type { UploadRecord, UploadRecordInput } from "../../domain/upload.ts";
+import {
+  type ObjectMetadata,
+  ObjectMetadataSchema,
+} from "../../domain/object.ts";
+import type { ObjectMetadataStore } from "../object-metadata.ts";
 
 export class MemoryObjectMetadataStore implements ObjectMetadataStore {
   readonly #metadata = new Map<string, ObjectMetadata>();

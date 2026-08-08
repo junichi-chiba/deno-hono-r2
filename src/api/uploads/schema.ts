@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { UploadPartSchema } from "../../db/upload-record.ts";
-export type { UploadPart } from "../../db/upload-record.ts";
+import { UploadPartSchema } from "../../domain/upload.ts";
+export type { UploadPart } from "../../domain/upload.ts";
 
 export function createUploadSchema(
   maxUploadBytes: number,

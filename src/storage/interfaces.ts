@@ -1,5 +1,5 @@
-import type { UploadPart } from "../db/upload-record.ts";
-export type { UploadPart } from "../db/upload-record.ts";
+import type { UploadPart } from "../domain/upload.ts";
+export type { UploadPart } from "../domain/upload.ts";
 
 export type ObjectInfo = {
   ContentLength: number;

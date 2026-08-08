@@ -1,4 +1,4 @@
-import type { UploadRecord, UploadRecordInput } from "./upload-record.ts";
+import type { UploadRecord, UploadRecordInput } from "../domain/upload.ts";
 
 export interface UploadRepository {
   save(upload: UploadRecordInput): UploadRecord;
