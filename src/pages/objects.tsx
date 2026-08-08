@@ -40,13 +40,12 @@ const ObjectsPage: FC = () => (
 const clientScript = `
 const status = document.querySelector("#status");
 const objects = document.querySelector("#objects");
-const saved = JSON.parse(localStorage.getItem("objects") || "[]");
+const saved = [];
 function render() {
   objects.innerHTML = saved.map(({key}) => '<li><a href="/api/objects/' + encodeURIComponent(key).replaceAll("%2F", "/") + '" target="_blank">' + key + '</a></li>').join("") || "<li>No objects yet.</li>";
 }
 function add(key) {
   if (!saved.some((item) => item.key === key)) saved.push({key});
-  localStorage.setItem("objects", JSON.stringify(saved));
   render();
 }
 async function upload(strategy) {
