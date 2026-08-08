@@ -1,3 +1,6 @@
 .env
 .mise.local.toml
 .DS_Store
+tmp/db/objects/*
+!tmp/db/objects/.gitkeep
+tmp/db/metadata/*
