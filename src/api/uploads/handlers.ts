@@ -18,6 +18,7 @@ export type UploadDependencies = {
 export type UploadHandlers = {
   cleanupExpiredUploads: () => Promise<void>;
   handleCreateUpload: (c: Context) => Promise<Response>;
+  handleCleanup: (c: Context) => Promise<Response>;
   handleCreatePartUpload: (c: Context) => Promise<Response>;
   handleCompleteUpload: (c: Context) => Promise<Response>;
   handleAbortUpload: (c: Context) => Promise<Response>;
@@ -68,6 +69,11 @@ export function createUploadHandlers(
     await Promise.all(
       uploads.findExpired().map(async (expired) => await expireUpload(expired)),
     );
+  }
+
+  async function handleCleanup(c: Context): Promise<Response> {
+    await cleanupExpiredUploads();
+    return c.json({ status: "cleanup complete" });
   }
 
   async function handleCreateUpload(c: Context): Promise<Response> {
@@ -409,6 +415,7 @@ export function createUploadHandlers(
 
   return {
     cleanupExpiredUploads,
+    handleCleanup,
     handleCreateUpload,
     handleCreatePartUpload,
     handleCompleteUpload,

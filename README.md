@@ -49,6 +49,7 @@ The account and credential variables are only required when storage mode is
 - `PUT /api/objects/:key`
 - `DELETE /api/objects/:key`
 - `POST /api/uploads`
+- `POST /api/uploads/cleanup`
 - `POST /api/uploads/:uploadId/parts/:partNumber`
 - `POST /api/uploads/:uploadId/extend`
 - `POST /api/uploads/:uploadId/complete`

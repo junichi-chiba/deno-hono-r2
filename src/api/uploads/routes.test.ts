@@ -15,6 +15,7 @@ function createApp(): ReturnType<typeof createApplication> {
     maxUploadLifetimeMs: 60 * 60 * 1000,
     dedupRetryAfterSeconds: 10,
     dedupMaxRetries: 3,
+    cleanupCron: "*/15 * * * *",
   };
   return createApplication({
     objectStorage,

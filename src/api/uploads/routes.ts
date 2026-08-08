@@ -24,6 +24,7 @@ export function createUploadRoutes(
     objectMetadataStore,
   });
   return new Hono()
+    .post("/cleanup", handlers.handleCleanup)
     .post(
       "/",
       zValidator("json", createUploadSchema(config.maxUploadBytes)),
