@@ -6,6 +6,7 @@
     "fmt": "deno fmt"
   },
   "imports": {
+    "@hono/zod-validator": "npm:@hono/zod-validator@^0.7.0",
     "hono": "npm:hono@^4.7.2",
     "s3": "npm:@aws-sdk/client-s3@^3.873.0",
     "@std/assert": "jsr:@std/assert@^1.0.0",

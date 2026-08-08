@@ -4,6 +4,7 @@
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "npm:@aws-sdk/client-s3@^3.873.0": "3.1105.0",
+    "npm:@hono/zod-validator@0.7": "0.7.6_hono@4.12.34_zod@4.4.3",
     "npm:hono@^4.7.2": "4.12.34",
     "npm:zod@4": "4.4.3"
   },
@@ -219,6 +220,13 @@
     "@aws/lambda-invoke-store@0.3.0": {
       "integrity": "sha512-sl4Bm6yiMNYrZKkqqDFWN0UfnWhlS8ivKxrYl+6t0gCLrqr8y3B2IqZZbFRkfaVVp7C/baApyh71P+LeE1A2sQ=="
     },
+    "@hono/zod-validator@0.7.6_hono@4.12.34_zod@4.4.3": {
+      "integrity": "sha512-Io1B6d011Gj1KknV4rXYz4le5+5EubcWEU/speUjuw9XMMIaP3n78yXLhjd2A3PXaXaUwEAluOiAyLqhBEJgsw==",
+      "dependencies": [
+        "hono",
+        "zod"
+      ]
+    },
     "@smithy/core@3.31.1": {
       "integrity": "sha512-CyogUINxvi7C7LDsh8Syo6hVJOT9ckz4rG8dRZfTJ8r91HkMY59PnNooaj7WcHyxEkxPfBAmbgztZU+xTo76lg==",
       "dependencies": [
@@ -281,6 +289,7 @@
     "dependencies": [
       "jsr:@std/assert@1",
       "npm:@aws-sdk/client-s3@^3.873.0",
+      "npm:@hono/zod-validator@0.7",
       "npm:hono@^4.7.2",
       "npm:zod@4"
     ]
