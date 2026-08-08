@@ -40,7 +40,6 @@
         "no-process-global",
         "no-slow-types",
         "no-sync-fn-in-async-fn",
-        "no-top-level-await",
         "no-unversioned-import",
         "prefer-ascii",
         "react-no-danger",
