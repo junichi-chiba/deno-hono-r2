@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { api } from "./api/index.ts";
+import "./cron.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { welcomeRoutes } from "./welcome.tsx";
 

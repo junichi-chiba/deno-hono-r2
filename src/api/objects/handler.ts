@@ -1,7 +1,7 @@
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand } from "s3";
 import type { Context } from "hono";
 import { bucketName, s3Client } from "../../storage.ts";
-import { MAX_UPLOAD_BYTES } from "./validation.ts";
+import { maxUploadBytes } from "../../env.ts";
 
 export async function handleGetObject(c: Context): Promise<Response> {
   const key = c.req.param("key");
@@ -24,8 +24,8 @@ export async function handleGetObject(c: Context): Promise<Response> {
 export async function handlePutObject(c: Context): Promise<Response> {
   const key = c.req.param("key");
   const body = new Uint8Array(await c.req.raw.arrayBuffer());
-  if (body.byteLength > MAX_UPLOAD_BYTES) {
-    return c.json({ error: "Upload exceeds the 10 MB limit" }, 413);
+  if (body.byteLength > maxUploadBytes) {
+    return c.json({ error: "Upload exceeds the configured size limit" }, 413);
   }
   const result = await s3Client.send(
     new PutObjectCommand({

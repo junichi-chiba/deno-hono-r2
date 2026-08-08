@@ -1,6 +1,5 @@
 import type { Context, Next } from "hono";
-
-export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+import { maxUploadBytes } from "../../env.ts";
 
 const allowedContentTypes = new Set([
   "application/octet-stream",
@@ -23,8 +22,8 @@ export async function validateUpload(
   if (!Number.isSafeInteger(contentLength) || contentLength <= 0) {
     return c.json({ error: "Content-Length is required" }, 411);
   }
-  if (contentLength > MAX_UPLOAD_BYTES) {
-    return c.json({ error: "Upload exceeds the 10 MB limit" }, 413);
+  if (contentLength > maxUploadBytes) {
+    return c.json({ error: "Upload exceeds the configured size limit" }, 413);
   }
 
   await next();

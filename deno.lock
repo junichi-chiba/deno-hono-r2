@@ -4,6 +4,7 @@
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/internal@^1.0.12": "1.0.14",
     "npm:@aws-sdk/client-s3@^3.873.0": "3.1105.0",
+    "npm:@aws-sdk/s3-request-presigner@^3.873.0": "3.1105.0",
     "npm:@hono/zod-validator@0.7": "0.7.6_hono@4.12.34_zod@4.4.3",
     "npm:hono@^4.7.2": "4.12.34",
     "npm:zod@4": "4.4.3"
@@ -183,6 +184,17 @@
         "tslib"
       ]
     },
+    "@aws-sdk/s3-request-presigner@3.1105.0": {
+      "integrity": "sha512-BaWEMVBsVHsJwpVnBmkzwzF7127hjELPNldXfJ0qiBvuco45ADDF1NbmaCrs93iFpSlFEhf+7mu4HmXS9nIlyw==",
+      "dependencies": [
+        "@aws-sdk/core",
+        "@aws-sdk/signature-v4-multi-region",
+        "@aws-sdk/types",
+        "@smithy/core",
+        "@smithy/types",
+        "tslib"
+      ]
+    },
     "@aws-sdk/signature-v4-multi-region@3.996.43": {
       "integrity": "sha512-lKekx8bLBXSv4O+cslk9Zfnw2XKSkWBs3uWL5QGhH2ZAQfNS7FE0vcSSN2vD/AhxX54ZTywWxR4STThoeOXlBA==",
       "dependencies": [
@@ -289,6 +301,7 @@
     "dependencies": [
       "jsr:@std/assert@1",
       "npm:@aws-sdk/client-s3@^3.873.0",
+      "npm:@aws-sdk/s3-request-presigner@^3.873.0",
       "npm:@hono/zod-validator@0.7",
       "npm:hono@^4.7.2",
       "npm:zod@4"
