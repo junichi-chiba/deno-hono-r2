@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import type { AppConfig } from "../../env.ts";
 import type { ObjectStorage } from "../../storage/interfaces.ts";
-import type { UploadRepository } from "../../db/upload-repository.ts";
+import type { UploadRepository } from "../../db/interfaces.ts";
 import { CompleteUploadSchema } from "./schema.ts";
 import type { UploadPart } from "./schema.ts";
 

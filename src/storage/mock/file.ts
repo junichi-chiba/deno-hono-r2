@@ -2,7 +2,7 @@ import {
   deleteObjectMetadata,
   findObjectMetadata,
   saveObjectMetadata,
-} from "../../db/metadata.ts";
+} from "../../db/object-metadata.ts";
 import {
   deleteLocalObject,
   readLocalObject,

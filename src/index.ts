@@ -1,8 +1,8 @@
 import { createApp } from "./app.ts";
-import { createUploadRepository } from "./db/create.ts";
+import { createUploadRepository } from "./db/factory.ts";
 import { appConfig } from "./env.ts";
-import { createStorage } from "./storage/create.ts";
-import { registerCron } from "./cron.ts";
+import { createStorage } from "./storage/factory.ts";
+import { registerCron } from "./jobs/cleanup.ts";
 
 const objectStorage = createStorage();
 const uploadRepository = createUploadRepository();
