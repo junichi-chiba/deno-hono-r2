@@ -1,9 +1,10 @@
 import { z } from "zod";
 
-const UploadPartSchema = z.object({
+export const UploadPartSchema = z.object({
   partNumber: z.number().int().positive().max(10_000),
   etag: z.string().min(1),
 });
+export type UploadPart = z.infer<typeof UploadPartSchema>;
 
 export const UploadRecordSchema = z.object({
   id: z.uuid(),

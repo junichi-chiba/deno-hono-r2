@@ -1,9 +1,6 @@
 import { z } from "zod";
-
-export type UploadPart = {
-  partNumber: number;
-  etag: string;
-};
+import { UploadPartSchema } from "../../db/upload-record.ts";
+export type { UploadPart } from "../../db/upload-record.ts";
 
 export function createUploadSchema(
   maxUploadBytes: number,
@@ -25,9 +22,6 @@ export const UploadPartParamsSchema = UploadIdSchema.extend({
 
 export const CompleteUploadSchema = z.object({
   parts: z.array(
-    z.object({
-      partNumber: z.number().int().positive().max(10_000),
-      etag: z.string().trim().min(1).max(1_024),
-    }),
+    UploadPartSchema,
   ).min(1).max(10_000),
 });

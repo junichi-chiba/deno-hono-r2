@@ -16,5 +16,3 @@ export interface ObjectMetadataStore {
   find(key: string): Promise<ObjectMetadata | undefined>;
   delete(key: string): Promise<void>;
 }
-
-export type ObjectMetadataRepository = ObjectMetadataStore;

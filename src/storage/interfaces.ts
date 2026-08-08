@@ -1,7 +1,5 @@
-export type UploadPart = {
-  partNumber: number;
-  etag: string;
-};
+import type { UploadPart } from "../db/upload-record.ts";
+export type { UploadPart } from "../db/upload-record.ts";
 
 export type ObjectInfo = {
   ContentLength: number;
