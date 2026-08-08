@@ -4,7 +4,7 @@ import type {
   SignedPartUploadInput,
   SignedUploadInput,
   StoredObject,
-} from "../types.ts";
+} from "../ports.ts";
 
 type MultipartPart = {
   partNumber: number;

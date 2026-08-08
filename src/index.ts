@@ -1,6 +1,6 @@
 import { createApp, createUploadRepository } from "./app.ts";
 import { appConfig } from "./env.ts";
-import { createObjectStorage } from "./storage/factory.ts";
+import { createObjectStorage } from "./storage/create.ts";
 import { registerCron } from "./cron.ts";
 
 const objectStorage = createObjectStorage();

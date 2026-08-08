@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import type { AppConfig } from "../../env.ts";
-import type { ObjectStorage } from "../../storage/types.ts";
+import type { ObjectStorage } from "../../storage/ports.ts";
 import type { UploadRepository } from "../../db/upload-repository.ts";
 import { CompleteUploadSchema } from "./schema.ts";
 
@@ -13,7 +13,7 @@ export type UploadDependencies = {
   config: AppConfig;
 };
 
-export type UploadHandlerSet = {
+export type UploadHandlers = {
   cleanupExpiredUploads: () => Promise<void>;
   handleCreateUpload: (c: Context) => Promise<Response>;
   handleCreatePartUpload: (c: Context) => Promise<Response>;
@@ -37,7 +37,7 @@ function mockUploadUrl(c: Context, suffix: string): string {
 
 export function createUploadHandlers(
   deps: UploadDependencies,
-): UploadHandlerSet {
+): UploadHandlers {
   const { objectStorage: storage, uploadRepository: uploads, config } = deps;
 
   async function deleteOrAbortUpload(upload: {

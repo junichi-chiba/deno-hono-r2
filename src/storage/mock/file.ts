@@ -14,7 +14,7 @@ import type {
   SignedPartUploadInput,
   SignedUploadInput,
   StoredObject,
-} from "../types.ts";
+} from "../ports.ts";
 
 const multipartDirectory = "tmp/db/objects/.multipart";
 

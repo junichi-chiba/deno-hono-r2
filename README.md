@@ -6,13 +6,23 @@ Hono API for Deno Deploy with Cloudflare R2 object storage.
 
 ```sh
 mise install
-# Add your R2 credentials to .mise.local.toml first (or use mock mode).
-mise run dev
+# Use mise -E file run dev for filesystem-backed mock mode, or configure R2.
+mise -E file run dev
 ```
 
-For local testing without R2, set `CLOUDFLARE_R2_STORAGE_MODE = "mock-file"` in
-`.mise.local.toml`. Mock signed URLs point back to the upload API and store
-objects and multipart parts under `tmp/db/objects`.
+For local testing without R2, use the filesystem-backed mock environment:
+
+```sh
+mise -E file run dev
+```
+
+It sets `CLOUDFLARE_R2_STORAGE_MODE=mock-file`. Mock signed URLs point back to
+the upload API and store objects and multipart parts under `tmp/db/objects`.
+Automated tests use the in-memory environment:
+
+```sh
+mise -E test run test
+```
 
 Set these variables in `.mise.local.toml` for local development:
 
@@ -43,6 +53,9 @@ The account and credential variables are only required when storage mode is
 - `POST /api/uploads/:uploadId/complete`
 - `POST /api/uploads/:uploadId/abort`
 - `DELETE /api/uploads/:uploadId`
+- `PUT /api/uploads/mock/:uploadId` (mock-file and mock-memory only)
+- `PUT /api/uploads/mock/:uploadId/parts/:partNumber` (mock-file and mock-memory
+  only)
 
 The upload flow uses multipart uploads by default. Pass `strategy: "single"` to
 keep the single PUT flow, or `strategy: "auto"` to explicitly select multipart.

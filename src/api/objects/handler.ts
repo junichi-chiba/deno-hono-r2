@@ -1,8 +1,8 @@
 import type { Context } from "hono";
 import type { AppConfig } from "../../env.ts";
-import type { ObjectStorage } from "../../storage/types.ts";
+import type { ObjectStorage } from "../../storage/ports.ts";
 
-export type ObjectHandlerSet = {
+export type ObjectHandlers = {
   handleGetObject: (c: Context) => Promise<Response>;
   handlePutObject: (c: Context) => Promise<Response>;
   handleDeleteObject: (c: Context) => Promise<Response>;
@@ -11,7 +11,7 @@ export type ObjectHandlerSet = {
 export function createObjectHandlers(
   storage: ObjectStorage,
   config: AppConfig,
-): ObjectHandlerSet {
+): ObjectHandlers {
   return {
     handleGetObject: async (c: Context): Promise<Response> => {
       const key = c.req.param("key") ?? "";

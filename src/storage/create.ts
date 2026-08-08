@@ -3,7 +3,7 @@ import { env } from "../env.ts";
 import { MemoryObjectStorage } from "./mock/memory.ts";
 import { FileObjectStorage } from "./mock/file.ts";
 import { R2ObjectStorage } from "./r2.ts";
-import type { ObjectStorage } from "./types.ts";
+import type { ObjectStorage } from "./ports.ts";
 
 export function createObjectStorage(): ObjectStorage {
   switch (env.CLOUDFLARE_R2_STORAGE_MODE) {

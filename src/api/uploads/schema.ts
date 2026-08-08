@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export function createCreateUploadSchema(
+export function createUploadSchema(
   maxUploadBytes: number,
 ): z.ZodType {
   return z.object({

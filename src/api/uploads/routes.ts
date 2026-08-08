@@ -1,11 +1,11 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import type { AppConfig } from "../../env.ts";
-import type { ObjectStorage } from "../../storage/types.ts";
+import type { ObjectStorage } from "../../storage/ports.ts";
 import type { UploadRepository } from "../../db/upload-repository.ts";
 import { createUploadHandlers } from "./handler.ts";
 import {
-  createCreateUploadSchema,
+  createUploadSchema,
   UploadIdSchema,
   UploadPartParamsSchema,
 } from "./schema.ts";
@@ -23,7 +23,7 @@ export function createUploadRoutes(
   return new Hono()
     .post(
       "/",
-      zValidator("json", createCreateUploadSchema(config.maxUploadBytes)),
+      zValidator("json", createUploadSchema(config.maxUploadBytes)),
       handlers.handleCreateUpload,
     )
     .post(

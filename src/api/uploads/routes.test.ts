@@ -1,9 +1,9 @@
 import { assertEquals, assertMatch } from "@std/assert";
 import { createApp as createApplication } from "../../app.ts";
-import { MemoryUploadRepository } from "../../db/memory.ts";
+import { MemoryUploadRepository } from "../../db/memory-repository.ts";
 import { MemoryObjectStorage } from "../../storage/mock/memory.ts";
 import type { AppConfig } from "../../env.ts";
-import type { ObjectStorage } from "../../storage/types.ts";
+import type { ObjectStorage } from "../../storage/ports.ts";
 
 function createApp(): ReturnType<typeof createApplication> {
   const objectStorage: ObjectStorage = new MemoryObjectStorage();
