@@ -1,6 +1,6 @@
 import { assertEquals, assertMatch } from "@std/assert";
 import { createApp as createApplication } from "../../app.ts";
-import { MemoryUploadRepository } from "../../db/memory.ts";
+import { MemoryUploadRepository } from "../../db/mock/memory.ts";
 import { MockMemoryStorage } from "../../storage/mock/memory.ts";
 import type { AppConfig } from "../../env.ts";
 import type { ObjectStorage } from "../../storage/interfaces.ts";
