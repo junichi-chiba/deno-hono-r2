@@ -88,6 +88,14 @@ export class FileUploadRepository implements UploadRepository {
     return readUploadIndex()[id];
   }
 
+  findPendingByDigest(contentDigest: string): UploadRecord | undefined {
+    return Object.values(readUploadIndex()).find(
+      (upload) =>
+        upload.status === "pending" &&
+        upload.expectedContentDigest === contentDigest,
+    );
+  }
+
   update(
     id: string,
     update: Partial<UploadRecord>,

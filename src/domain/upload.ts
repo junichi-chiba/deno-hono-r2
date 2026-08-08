@@ -20,6 +20,7 @@ export const UploadRecordSchema = ObjectMetadataSchema.pick({
   expectedSize: PendingUploadContentSchema.shape.size,
   expectedContentType: PendingUploadContentSchema.shape.contentType,
   expectedContentDigest: PendingUploadContentSchema.shape.contentDigest,
+  retryCount: z.number().int().nonnegative().default(0),
   createdAt: z.number().int().nonnegative(),
   lastActivityAt: z.number().int().nonnegative(),
   expiresAt: z.number().int().nonnegative(),

@@ -48,6 +48,14 @@ export class MemoryUploadRepository {
     return this.#uploads.get(id);
   }
 
+  findPendingByDigest(contentDigest: string): UploadRecord | undefined {
+    return [...this.#uploads.values()].find(
+      (upload) =>
+        upload.status === "pending" &&
+        upload.expectedContentDigest === contentDigest,
+    );
+  }
+
   update(
     id: string,
     update: Partial<UploadRecord>,

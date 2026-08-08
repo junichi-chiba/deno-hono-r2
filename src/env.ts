@@ -20,6 +20,10 @@ const EnvSchema = z.object({
     .default(
       60 * 60 * 1000,
     ),
+  CLOUDFLARE_R2_DEDUP_RETRY_AFTER_SECONDS: z.coerce.number().int().positive()
+    .default(10),
+  CLOUDFLARE_R2_DEDUP_MAX_RETRIES: z.coerce.number().int().nonnegative()
+    .default(3),
 }).superRefine((values, context) => {
   if (values.CLOUDFLARE_R2_STORAGE_MODE !== "r2") return;
 
@@ -55,6 +59,8 @@ export type AppConfig = {
   uploadUrlTtlMs: number;
   staleUploadTtlMs: number;
   maxUploadLifetimeMs: number;
+  dedupRetryAfterSeconds: number;
+  dedupMaxRetries: number;
 };
 
 export const appConfig: AppConfig = {
@@ -62,4 +68,6 @@ export const appConfig: AppConfig = {
   uploadUrlTtlMs: env.CLOUDFLARE_R2_UPLOAD_URL_TTL_MS,
   staleUploadTtlMs: env.CLOUDFLARE_R2_STALE_UPLOAD_TTL_MS,
   maxUploadLifetimeMs: env.CLOUDFLARE_R2_MAX_UPLOAD_LIFETIME_MS,
+  dedupRetryAfterSeconds: env.CLOUDFLARE_R2_DEDUP_RETRY_AFTER_SECONDS,
+  dedupMaxRetries: env.CLOUDFLARE_R2_DEDUP_MAX_RETRIES,
 };

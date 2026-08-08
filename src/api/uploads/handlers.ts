@@ -72,22 +72,55 @@ export function createUploadHandlers(
 
   async function handleCreateUpload(c: Context): Promise<Response> {
     await cleanupExpiredUploads();
-    const { size, contentType, contentDigest, strategy: requestedStrategy } = await c.req
+    const {
+      size,
+      contentType,
+      contentDigest,
+      force = false,
+      strategy: requestedStrategy,
+    } = await c.req
       .json<{
         size: number;
         contentType: string;
         contentDigest: string;
+        force?: boolean;
         strategy?: UploadStrategy;
       }>();
     const strategy = requestedStrategy === "single" ? "single" : "multipart";
-    const existing = await objectMetadataStore.findByDigest(
-      contentDigest.toLowerCase(),
-    );
+    const normalizedDigest = contentDigest.toLowerCase();
+    const existing = await objectMetadataStore.findByDigest(normalizedDigest);
     if (existing) {
       return c.json({
         error: "Object with this content digest already exists",
         key: existing.key,
       }, 409);
+    }
+    const pending = uploads.findPendingByDigest(normalizedDigest);
+    if (pending && !force) {
+      const retryCount = pending.retryCount + 1;
+      uploads.update(pending.id, { retryCount });
+      const exhausted = retryCount > config.dedupMaxRetries;
+      const response = {
+        error: exhausted
+          ? "An upload with this content digest is still in progress; retry limit reached"
+          : "An upload with this content digest is already in progress",
+        uploadId: pending.id,
+        retryCount,
+        maxRetries: config.dedupMaxRetries,
+        ...(exhausted
+          ? {}
+          : { retryAfterSeconds: config.dedupRetryAfterSeconds }),
+      };
+      return c.json(
+        response,
+        409,
+        exhausted
+          ? undefined
+          : { "Retry-After": String(config.dedupRetryAfterSeconds) },
+      );
+    }
+    if (pending && force) {
+      await expireUpload(pending);
     }
     const id = crypto.randomUUID();
     const key = `uploads/${id}`;
@@ -100,7 +133,7 @@ export function createUploadHandlers(
         key,
         expectedSize: size,
         expectedContentType: contentType,
-        expectedContentDigest: contentDigest.toLowerCase(),
+        expectedContentDigest: normalizedDigest,
         createdAt: now,
         expiresAt,
         lastActivityAt: now + config.staleUploadTtlMs,
@@ -134,7 +167,7 @@ export function createUploadHandlers(
       key,
       expectedSize: size,
       expectedContentType: contentType,
-      expectedContentDigest: contentDigest.toLowerCase(),
+      expectedContentDigest: normalizedDigest,
       createdAt: now,
       expiresAt,
       lastActivityAt: now + config.staleUploadTtlMs,
