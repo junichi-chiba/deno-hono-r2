@@ -1,9 +1,9 @@
 import { createApp, createUploadRepository } from "./app.ts";
 import { appConfig } from "./env.ts";
-import { createObjectStorage } from "./storage/create.ts";
+import { createStorage } from "./storage/create.ts";
 import { registerCron } from "./cron.ts";
 
-const objectStorage = createObjectStorage();
+const objectStorage = createStorage();
 const uploadRepository = createUploadRepository();
 const dependencies = {
   objectStorage,

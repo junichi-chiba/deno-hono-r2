@@ -1,10 +1,10 @@
 import { assertEquals, assertThrows } from "@std/assert";
-import { MemoryMultipartStorage } from "./memory.ts";
+import { MultipartMemoryStore } from "./memory.ts";
 
 Deno.test({
   name: "merges multipart uploads in part order",
   fn(): void {
-    const storage = new MemoryMultipartStorage();
+    const storage = new MultipartMemoryStore();
     const uploadId = storage.createMultipartUpload("uploads/example");
     const secondEtag = storage.uploadPart(
       uploadId,
@@ -32,7 +32,7 @@ Deno.test({
 Deno.test({
   name: "rejects completion with a missing part",
   fn(): void {
-    const storage = new MemoryMultipartStorage();
+    const storage = new MultipartMemoryStore();
     const uploadId = storage.createMultipartUpload("uploads/example");
     const etag = storage.uploadPart(uploadId, 1, new Uint8Array([1]));
 
@@ -48,7 +48,7 @@ Deno.test({
 Deno.test({
   name: "aborting does not create an object",
   fn(): void {
-    const storage = new MemoryMultipartStorage();
+    const storage = new MultipartMemoryStore();
     const uploadId = storage.createMultipartUpload("uploads/example");
     storage.uploadPart(uploadId, 1, new Uint8Array([1]));
 

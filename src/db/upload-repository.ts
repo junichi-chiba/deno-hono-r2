@@ -1,4 +1,4 @@
-import type { UploadRecord, UploadRecordInput } from "./memory-repository.ts";
+import type { UploadRecord, UploadRecordInput } from "./memory.ts";
 
 export interface UploadRepository {
   save(upload: UploadRecordInput): UploadRecord;

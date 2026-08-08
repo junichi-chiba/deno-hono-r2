@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import type { AppConfig } from "./env.ts";
 import { createApi } from "./api/index.ts";
-import { MemoryUploadRepository } from "./db/memory-repository.ts";
-import type { ObjectStorage } from "./storage/ports.ts";
+import { MemoryUploadRepository } from "./db/memory.ts";
+import type { ObjectStorage } from "./storage/interfaces.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { welcomeRoutes } from "./pages/welcome.tsx";
 import { objectPageRoutes } from "./pages/objects.tsx";

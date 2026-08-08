@@ -1,16 +1,16 @@
 import { S3Client } from "s3";
 import { env } from "../env.ts";
-import { MemoryObjectStorage } from "./mock/memory.ts";
-import { FileObjectStorage } from "./mock/file.ts";
+import { MockMemoryStorage } from "./mock/memory.ts";
+import { MockFileStorage } from "./mock/file.ts";
 import { R2ObjectStorage } from "./r2.ts";
-import type { ObjectStorage } from "./ports.ts";
+import type { ObjectStorage } from "./interfaces.ts";
 
-export function createObjectStorage(): ObjectStorage {
+export function createStorage(): ObjectStorage {
   switch (env.CLOUDFLARE_R2_STORAGE_MODE) {
     case "mock-memory":
-      return new MemoryObjectStorage();
+      return new MockMemoryStorage();
     case "mock-file":
-      return new FileObjectStorage();
+      return new MockFileStorage();
     case "r2": {
       const client = new S3Client({
         region: "auto",

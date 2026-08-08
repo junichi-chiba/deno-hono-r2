@@ -1,12 +1,12 @@
 import type {
-  ObjectHead,
+  ObjectMetadata,
   ObjectStorage,
-  SignedPartUploadInput,
-  SignedUploadInput,
+  SignedObjectUploadInput,
+  SignedUploadPartInput,
   StoredObject,
-} from "../ports.ts";
+} from "../interfaces.ts";
 
-type MultipartPart = {
+type UploadPart = {
   partNumber: number;
   etag: string;
 };
@@ -16,7 +16,7 @@ type MultipartUpload = {
   parts: Map<number, { body: Uint8Array; etag: string }>;
 };
 
-export class MemoryMultipartStorage {
+export class MultipartMemoryStore {
   readonly #uploads = new Map<string, MultipartUpload>();
   readonly #objects = new Map<string, Uint8Array>();
 
@@ -37,7 +37,7 @@ export class MemoryMultipartStorage {
 
   completeMultipartUpload(
     uploadId: string,
-    parts: MultipartPart[],
+    parts: UploadPart[],
   ): { key: string; object: Uint8Array } {
     const upload = this.#uploads.get(uploadId);
     if (!upload) throw new Error("Multipart upload not found");
@@ -72,9 +72,9 @@ export class MemoryMultipartStorage {
   }
 }
 
-export class MemoryObjectStorage implements ObjectStorage {
+export class MockMemoryStorage implements ObjectStorage {
   readonly isMock = true;
-  readonly #multipart = new MemoryMultipartStorage();
+  readonly #multipart = new MultipartMemoryStore();
   readonly #multipartContentTypes = new Map<string, string>();
   readonly #objects = new Map<
     string,
@@ -100,7 +100,7 @@ export class MemoryObjectStorage implements ObjectStorage {
     });
   }
 
-  headObject(key: string): Promise<ObjectHead | undefined> {
+  headObject(key: string): Promise<ObjectMetadata | undefined> {
     const object = this.#objects.get(key);
     if (!object) return Promise.resolve(undefined);
     return Promise.resolve({
@@ -137,7 +137,7 @@ export class MemoryObjectStorage implements ObjectStorage {
   completeMultipartUpload(
     _key: string,
     uploadId: string,
-    parts: MultipartPart[],
+    parts: UploadPart[],
   ): Promise<void> {
     const upload = this.#multipart.completeMultipartUpload(uploadId, parts);
     this.#objects.set(upload.key, {
@@ -155,12 +155,12 @@ export class MemoryObjectStorage implements ObjectStorage {
     return Promise.resolve();
   }
 
-  createSignedUploadUrl(_input: SignedUploadInput): Promise<string> {
+  createSignedUploadUrl(_input: SignedObjectUploadInput): Promise<string> {
     throw new Error("Mock storage uses the mock upload routes");
   }
 
   createSignedPartUploadUrl(
-    _input: SignedPartUploadInput,
+    _input: SignedUploadPartInput,
   ): Promise<string> {
     throw new Error("Mock storage uses the mock upload routes");
   }

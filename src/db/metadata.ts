@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const metadataPath = "tmp/db/metadata/objects.json";
+const objectMetadataPath = "tmp/db/metadata/objects.json";
 
 const ObjectMetadataSchema = z.object({
   key: z.string().min(1),
@@ -17,7 +17,7 @@ const MetadataIndexSchema = z.record(z.string(), ObjectMetadataSchema);
 
 async function readIndex(): Promise<Record<string, ObjectMetadata>> {
   try {
-    const text = await Deno.readTextFile(metadataPath);
+    const text = await Deno.readTextFile(objectMetadataPath);
     return MetadataIndexSchema.parse(JSON.parse(text));
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) return {};
@@ -29,7 +29,10 @@ async function writeIndex(
   index: Record<string, ObjectMetadata>,
 ): Promise<void> {
   await Deno.mkdir("tmp/db/metadata", { recursive: true });
-  await Deno.writeTextFile(metadataPath, `${JSON.stringify(index, null, 2)}\n`);
+  await Deno.writeTextFile(
+    objectMetadataPath,
+    `${JSON.stringify(index, null, 2)}\n`,
+  );
 }
 
 export async function saveObjectMetadata(

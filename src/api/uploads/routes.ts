@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import type { AppConfig } from "../../env.ts";
-import type { ObjectStorage } from "../../storage/ports.ts";
+import type { ObjectStorage } from "../../storage/interfaces.ts";
 import type { UploadRepository } from "../../db/upload-repository.ts";
 import { createUploadHandlers } from "./handler.ts";
 import {

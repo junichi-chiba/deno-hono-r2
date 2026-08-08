@@ -9,12 +9,12 @@ import {
   writeLocalObject,
 } from "./local.ts";
 import type {
-  ObjectHead,
+  ObjectMetadata,
   ObjectStorage,
-  SignedPartUploadInput,
-  SignedUploadInput,
+  SignedObjectUploadInput,
+  SignedUploadPartInput,
   StoredObject,
-} from "../ports.ts";
+} from "../interfaces.ts";
 
 const multipartDirectory = "tmp/db/objects/.multipart";
 
@@ -164,7 +164,7 @@ export async function abortMockMultipartUpload(
   await removeUploadDirectory(uploadId);
 }
 
-export class FileObjectStorage implements ObjectStorage {
+export class MockFileStorage implements ObjectStorage {
   readonly isMock = true;
 
   async putObject(
@@ -186,7 +186,7 @@ export class FileObjectStorage implements ObjectStorage {
     };
   }
 
-  async headObject(key: string): Promise<ObjectHead | undefined> {
+  async headObject(key: string): Promise<ObjectMetadata | undefined> {
     return await headMockObject(key);
   }
 
@@ -223,13 +223,13 @@ export class FileObjectStorage implements ObjectStorage {
   }
 
   createSignedUploadUrl(
-    _input: SignedUploadInput,
+    _input: SignedObjectUploadInput,
   ): Promise<string> {
     throw new Error("Mock storage uses the mock upload routes");
   }
 
   createSignedPartUploadUrl(
-    _input: SignedPartUploadInput,
+    _input: SignedUploadPartInput,
   ): Promise<string> {
     throw new Error("Mock storage uses the mock upload routes");
   }

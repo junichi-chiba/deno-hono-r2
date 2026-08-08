@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import type { AppConfig } from "../../env.ts";
-import type { ObjectStorage } from "../../storage/ports.ts";
+import type { ObjectStorage } from "../../storage/interfaces.ts";
 
 export type ObjectHandlers = {
   handleGetObject: (c: Context) => Promise<Response>;

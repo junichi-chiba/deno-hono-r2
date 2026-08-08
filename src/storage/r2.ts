@@ -11,13 +11,13 @@ import {
 } from "s3";
 import { getSignedUrl } from "presigner";
 import type {
-  MultipartPart,
-  ObjectHead,
+  ObjectMetadata,
   ObjectStorage,
-  SignedPartUploadInput,
-  SignedUploadInput,
+  SignedObjectUploadInput,
+  SignedUploadPartInput,
   StoredObject,
-} from "./ports.ts";
+  UploadPart,
+} from "./interfaces.ts";
 
 type R2StorageConfig = {
   accountId: string;
@@ -69,7 +69,7 @@ export class R2ObjectStorage implements ObjectStorage {
     }
   }
 
-  async headObject(key: string): Promise<ObjectHead | undefined> {
+  async headObject(key: string): Promise<ObjectMetadata | undefined> {
     try {
       const result = await this.#client.send(
         new HeadObjectCommand({ Bucket: this.#bucketName, Key: key }),
@@ -128,7 +128,7 @@ export class R2ObjectStorage implements ObjectStorage {
   async completeMultipartUpload(
     key: string,
     uploadId: string,
-    parts: MultipartPart[],
+    parts: UploadPart[],
   ): Promise<void> {
     await this.completeMultipartUploadForKey(key, uploadId, parts);
   }
@@ -137,7 +137,7 @@ export class R2ObjectStorage implements ObjectStorage {
     await this.abortMultipartUploadForKey(key, uploadId);
   }
 
-  async createSignedUploadUrl(input: SignedUploadInput): Promise<string> {
+  async createSignedUploadUrl(input: SignedObjectUploadInput): Promise<string> {
     return await getSignedUrl(
       this.#client,
       new PutObjectCommand({
@@ -150,7 +150,7 @@ export class R2ObjectStorage implements ObjectStorage {
   }
 
   async createSignedPartUploadUrl(
-    input: SignedPartUploadInput,
+    input: SignedUploadPartInput,
   ): Promise<string> {
     return await getSignedUrl(
       this.#client,
@@ -167,7 +167,7 @@ export class R2ObjectStorage implements ObjectStorage {
   async completeMultipartUploadForKey(
     key: string,
     uploadId: string,
-    parts: MultipartPart[],
+    parts: UploadPart[],
   ): Promise<void> {
     await this.#client.send(
       new CompleteMultipartUploadCommand({

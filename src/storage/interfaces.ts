@@ -1,24 +1,24 @@
-export type MultipartPart = {
+export type UploadPart = {
   partNumber: number;
   etag: string;
 };
 
-export type ObjectHead = {
+export type ObjectMetadata = {
   ContentLength: number;
   ContentType?: string;
 };
 
-export type StoredObject = ObjectHead & {
+export type StoredObject = ObjectMetadata & {
   body: Uint8Array;
 };
 
-export type SignedUploadInput = {
+export type SignedObjectUploadInput = {
   key: string;
   contentType: string;
   expiresInSeconds: number;
 };
 
-export type SignedPartUploadInput = {
+export type SignedUploadPartInput = {
   key: string;
   uploadId: string;
   partNumber: number;
@@ -33,7 +33,7 @@ export interface ObjectStorage {
     contentType: string,
   ): Promise<string>;
   getObject(key: string): Promise<StoredObject | undefined>;
-  headObject(key: string): Promise<ObjectHead | undefined>;
+  headObject(key: string): Promise<ObjectMetadata | undefined>;
   deleteObject(key: string): Promise<void>;
   createMultipartUpload(key: string, contentType: string): Promise<string>;
   uploadPart(
@@ -45,9 +45,9 @@ export interface ObjectStorage {
   completeMultipartUpload(
     key: string,
     uploadId: string,
-    parts: MultipartPart[],
+    parts: UploadPart[],
   ): Promise<void>;
   abortMultipartUpload(key: string, uploadId: string): Promise<void>;
-  createSignedUploadUrl(input: SignedUploadInput): Promise<string>;
-  createSignedPartUploadUrl(input: SignedPartUploadInput): Promise<string>;
+  createSignedUploadUrl(input: SignedObjectUploadInput): Promise<string>;
+  createSignedPartUploadUrl(input: SignedUploadPartInput): Promise<string>;
 }
