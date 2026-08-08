@@ -4,6 +4,7 @@ export const ObjectMetadataSchema = z.object({
   key: z.string().min(1),
   size: z.number().int().nonnegative(),
   contentType: z.string().min(1),
+  contentDigest: z.string().regex(/^[\da-f]{64}$/i),
   etag: z.string().min(1),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),

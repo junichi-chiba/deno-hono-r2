@@ -60,6 +60,8 @@ The account and credential variables are only required when storage mode is
 
 The upload flow uses multipart uploads by default. Pass `strategy: "single"` to
 keep the single PUT flow, or `strategy: "auto"` to explicitly select multipart.
+Upload creation requires `contentDigest`, a 64-character SHA-256 hexadecimal
+digest of the content.
 Multipart clients request a presigned URL for each part, then submit the part
 numbers and ETags to the complete endpoint. `mock-memory` uses in-memory
 metadata and upload repositories, while `mock-file` uses JSON files under

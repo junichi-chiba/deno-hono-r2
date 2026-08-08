@@ -13,6 +13,7 @@ const uploadRepository = createUploadRepository();
 const dependencies = {
   objectStorage,
   uploadRepository,
+  objectMetadataStore,
   config: appConfig,
 };
 const app = createApp(dependencies);

@@ -4,6 +4,7 @@ import { MemoryUploadRepository } from "../../db/mock/memory.ts";
 import { MockMemoryStorage } from "../../storage/mock/memory.ts";
 import type { AppConfig } from "../../env.ts";
 import type { ObjectStorage } from "../../storage/interfaces.ts";
+import { MemoryObjectMetadataStore } from "../../db/mock/memory.ts";
 
 function createApp(): ReturnType<typeof createApplication> {
   const objectStorage: ObjectStorage = new MockMemoryStorage();
@@ -16,6 +17,7 @@ function createApp(): ReturnType<typeof createApplication> {
   return createApplication({
     objectStorage,
     uploadRepository: new MemoryUploadRepository(),
+    objectMetadataStore: new MemoryObjectMetadataStore(),
     config,
   });
 }
@@ -43,6 +45,8 @@ Deno.test({
       body: JSON.stringify({
         size: 5,
         contentType: "text/plain",
+        contentDigest:
+          "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
         strategy: "single",
       }),
     });
@@ -91,6 +95,8 @@ Deno.test({
       body: JSON.stringify({
         size: 11,
         contentType: "text/plain",
+        contentDigest:
+          "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
         strategy: "multipart",
       }),
     });

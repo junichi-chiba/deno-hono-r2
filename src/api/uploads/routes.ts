@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import type { AppConfig } from "../../env.ts";
 import type { ObjectStorage } from "../../storage/interfaces.ts";
 import type { UploadRepository } from "../../db/upload-repository.ts";
+import type { ObjectMetadataStore } from "../../domain/ports.ts";
 import { createUploadHandlers } from "./handlers.ts";
 import {
   createUploadSchema,
@@ -14,11 +15,13 @@ export function createUploadRoutes(
   storage: ObjectStorage,
   uploads: UploadRepository,
   config: AppConfig,
+  objectMetadataStore: ObjectMetadataStore,
 ): Hono {
   const handlers = createUploadHandlers({
     objectStorage: storage,
     uploadRepository: uploads,
     config,
+    objectMetadataStore,
   });
   return new Hono()
     .post(

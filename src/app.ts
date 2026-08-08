@@ -6,10 +6,12 @@ import { healthRoutes } from "./routes/health.ts";
 import { welcomeRoutes } from "./pages/welcome.tsx";
 import { objectPageRoutes } from "./pages/objects.tsx";
 import type { UploadRepository } from "./db/upload-repository.ts";
+import type { ObjectMetadataStore } from "./domain/ports.ts";
 
 export type AppDependencies = {
   objectStorage: ObjectStorage;
   uploadRepository: UploadRepository;
+  objectMetadataStore: ObjectMetadataStore;
   config?: AppConfig;
 };
 
@@ -24,6 +26,7 @@ export function createApp(deps: AppDependencies): Hono {
     deps.objectStorage,
     deps.uploadRepository,
     config,
+    deps.objectMetadataStore,
   );
   return new Hono()
     .route("/", welcomeRoutes)

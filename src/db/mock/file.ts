@@ -43,6 +43,13 @@ export class FileObjectMetadataStore implements ObjectMetadataStore {
     return index[key];
   }
 
+  async findByDigest(contentDigest: string): Promise<ObjectMetadata | undefined> {
+    const index = await readMetadataIndex();
+    return Object.values(index).find(
+      (metadata) => metadata.contentDigest === contentDigest,
+    );
+  }
+
   async delete(key: string): Promise<void> {
     const index = await readMetadataIndex();
     delete index[key];

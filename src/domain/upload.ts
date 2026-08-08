@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ObjectMetadataSchema } from "./object.ts";
 
 export const UploadPartSchema = z.object({
   partNumber: z.number().int().positive().max(10_000),
@@ -6,11 +7,19 @@ export const UploadPartSchema = z.object({
 });
 export type UploadPart = z.infer<typeof UploadPartSchema>;
 
-export const UploadRecordSchema = z.object({
+const PendingUploadContentSchema = ObjectMetadataSchema.pick({
+  size: true,
+  contentType: true,
+  contentDigest: true,
+});
+
+export const UploadRecordSchema = ObjectMetadataSchema.pick({
+  key: true,
+}).extend({
   id: z.uuid(),
-  key: z.string().min(1),
-  expectedSize: z.number().int().positive(),
-  expectedContentType: z.string().min(1),
+  expectedSize: PendingUploadContentSchema.shape.size,
+  expectedContentType: PendingUploadContentSchema.shape.contentType,
+  expectedContentDigest: PendingUploadContentSchema.shape.contentDigest,
   createdAt: z.number().int().nonnegative(),
   lastActivityAt: z.number().int().nonnegative(),
   expiresAt: z.number().int().nonnegative(),

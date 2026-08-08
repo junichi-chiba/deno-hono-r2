@@ -8,6 +8,7 @@ export function createUploadSchema(
   return z.object({
     size: z.number().int().positive().max(maxUploadBytes),
     contentType: z.string().trim().min(1).max(255),
+    contentDigest: z.string().trim().regex(/^[\da-f]{64}$/i),
     strategy: z.enum(["auto", "single", "multipart"]).default("multipart"),
   });
 }

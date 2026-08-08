@@ -20,6 +20,13 @@ export class MemoryObjectMetadataStore implements ObjectMetadataStore {
     return Promise.resolve(metadata ? { ...metadata } : undefined);
   }
 
+  findByDigest(contentDigest: string): Promise<ObjectMetadata | undefined> {
+    const metadata = [...this.#metadata.values()].find(
+      (item) => item.contentDigest === contentDigest,
+    );
+    return Promise.resolve(metadata ? { ...metadata } : undefined);
+  }
+
   delete(key: string): Promise<void> {
     this.#metadata.delete(key);
     return Promise.resolve();

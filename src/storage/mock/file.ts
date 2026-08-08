@@ -60,6 +60,13 @@ async function etag(body: Uint8Array): Promise<string> {
   return `"${hex}"`;
 }
 
+async function digest(body: Uint8Array): Promise<string> {
+  const hash = await crypto.subtle.digest("SHA-256", body.slice());
+  return [...new Uint8Array(hash)].map((byte) =>
+    byte.toString(16).padStart(2, "0")
+  ).join("");
+}
+
 export async function putMockObject(
   metadataStore: ObjectMetadataStore,
   key: string,
@@ -72,6 +79,7 @@ export async function putMockObject(
     key,
     size: body.byteLength,
     contentType,
+    contentDigest: await digest(body),
     etag: await etag(body),
     createdAt: (await metadataStore.find(key))?.createdAt ?? now,
     updatedAt: now,

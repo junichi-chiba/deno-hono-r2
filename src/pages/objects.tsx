@@ -50,8 +50,10 @@ function add(key) {
 }
 async function upload(strategy) {
   const body = new TextEncoder().encode(document.querySelector("#sample").value);
+  const digest = [...new Uint8Array(await crypto.subtle.digest("SHA-256", body))]
+    .map((byte) => byte.toString(16).padStart(2, "0")).join("");
   status.textContent = "Creating " + strategy + " upload...";
-  const created = await fetch("/api/uploads", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({size:body.byteLength,contentType:"text/plain",strategy})}).then((r) => r.json());
+  const created = await fetch("/api/uploads", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({size:body.byteLength,contentType:"text/plain",contentDigest:digest,strategy})}).then((r) => r.json());
   if (strategy === "single") {
     await fetch(created.url, {method:"PUT",headers:{"content-type":"text/plain"},body});
   } else {

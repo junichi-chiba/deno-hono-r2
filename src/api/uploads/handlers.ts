@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import type { AppConfig } from "../../env.ts";
 import type { ObjectStorage } from "../../storage/interfaces.ts";
 import type { UploadRepository } from "../../db/upload-repository.ts";
+import type { ObjectMetadataStore } from "../../domain/ports.ts";
 import { CompleteUploadSchema } from "./schema.ts";
 import type { UploadPart } from "./schema.ts";
 
@@ -10,6 +11,7 @@ type UploadStrategy = "auto" | "single" | "multipart";
 export type UploadDependencies = {
   objectStorage: ObjectStorage;
   uploadRepository: UploadRepository;
+  objectMetadataStore: ObjectMetadataStore;
   config: AppConfig;
 };
 
@@ -38,7 +40,7 @@ function mockUploadUrl(c: Context, suffix: string): string {
 export function createUploadHandlers(
   deps: UploadDependencies,
 ): UploadHandlers {
-  const { objectStorage: storage, uploadRepository: uploads, config } = deps;
+  const { objectStorage: storage, uploadRepository: uploads, config, objectMetadataStore } = deps;
 
   async function deleteOrAbortUpload(upload: {
     key: string;
@@ -70,13 +72,23 @@ export function createUploadHandlers(
 
   async function handleCreateUpload(c: Context): Promise<Response> {
     await cleanupExpiredUploads();
-    const { size, contentType, strategy: requestedStrategy } = await c.req
+    const { size, contentType, contentDigest, strategy: requestedStrategy } = await c.req
       .json<{
         size: number;
         contentType: string;
+        contentDigest: string;
         strategy?: UploadStrategy;
       }>();
     const strategy = requestedStrategy === "single" ? "single" : "multipart";
+    const existing = await objectMetadataStore.findByDigest(
+      contentDigest.toLowerCase(),
+    );
+    if (existing) {
+      return c.json({
+        error: "Object with this content digest already exists",
+        key: existing.key,
+      }, 409);
+    }
     const id = crypto.randomUUID();
     const key = `uploads/${id}`;
     const now = Date.now();
@@ -88,6 +100,7 @@ export function createUploadHandlers(
         key,
         expectedSize: size,
         expectedContentType: contentType,
+        expectedContentDigest: contentDigest.toLowerCase(),
         createdAt: now,
         expiresAt,
         lastActivityAt: now + config.staleUploadTtlMs,
@@ -121,6 +134,7 @@ export function createUploadHandlers(
       key,
       expectedSize: size,
       expectedContentType: contentType,
+      expectedContentDigest: contentDigest.toLowerCase(),
       createdAt: now,
       expiresAt,
       lastActivityAt: now + config.staleUploadTtlMs,
