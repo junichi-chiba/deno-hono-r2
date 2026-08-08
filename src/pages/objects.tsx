@@ -70,8 +70,12 @@ document.querySelector("#multipart").onclick = () => upload("multipart").catch((
 document.querySelector("#cleanup").onclick = async () => {
   status.textContent = "Running cleanup...";
   const response = await fetch("/api/uploads/cleanup", {method:"POST"});
+  if (!response.ok) {
+    status.textContent = "Cleanup unavailable.";
+    return;
+  }
   const result = await response.json();
-  status.textContent = response.ok ? result.status : (result.error || "Cleanup unavailable.");
+  status.textContent = result.status;
 };
 render();
 `;
