@@ -1,6 +1,5 @@
 import { S3Client } from "s3";
-import { createObjectMetadataStore } from "../db/factory.ts";
-import type { ObjectMetadataStore } from "../db/object-metadata.ts";
+import type { ObjectMetadataStore } from "../domain/ports.ts";
 import { env } from "../env.ts";
 import { MockMemoryStorage } from "./mock/memory.ts";
 import { MockFileStorage } from "./mock/file.ts";
@@ -8,7 +7,7 @@ import { R2ObjectStorage } from "./r2.ts";
 import type { ObjectStorage } from "./interfaces.ts";
 
 export function createStorage(
-  metadataStore: ObjectMetadataStore = createObjectMetadataStore(),
+  metadataStore: ObjectMetadataStore,
 ): ObjectStorage {
   switch (env.CLOUDFLARE_R2_STORAGE_MODE) {
     case "mock-memory":

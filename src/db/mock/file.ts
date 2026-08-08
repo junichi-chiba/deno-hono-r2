@@ -4,7 +4,7 @@ import {
 } from "../../domain/object.ts";
 import { UploadRecordSchema } from "../../domain/upload.ts";
 import type { UploadRecord, UploadRecordInput } from "../../domain/upload.ts";
-import type { ObjectMetadataStore } from "../object-metadata.ts";
+import type { ObjectMetadataStore } from "../../domain/ports.ts";
 import type { UploadRepository } from "../upload-repository.ts";
 import { z } from "zod";
 

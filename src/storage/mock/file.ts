@@ -1,4 +1,4 @@
-import type { ObjectMetadataStore } from "../../db/object-metadata.ts";
+import type { ObjectMetadataStore } from "../../domain/ports.ts";
 import {
   deleteLocalObject,
   readLocalObject,

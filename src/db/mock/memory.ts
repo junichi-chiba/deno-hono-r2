@@ -4,7 +4,7 @@ import {
   type ObjectMetadata,
   ObjectMetadataSchema,
 } from "../../domain/object.ts";
-import type { ObjectMetadataStore } from "../object-metadata.ts";
+import type { ObjectMetadataStore } from "../../domain/ports.ts";
 
 export class MemoryObjectMetadataStore implements ObjectMetadataStore {
   readonly #metadata = new Map<string, ObjectMetadata>();

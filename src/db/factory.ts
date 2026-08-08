@@ -2,7 +2,7 @@ import { env } from "../env.ts";
 import { FileObjectMetadataStore, FileUploadRepository } from "./mock/file.ts";
 import { MemoryUploadRepository } from "./mock/memory.ts";
 import { MemoryObjectMetadataStore } from "./mock/memory.ts";
-import type { ObjectMetadataStore } from "./object-metadata.ts";
+import type { ObjectMetadataStore } from "../domain/ports.ts";
 import type { UploadRepository } from "./upload-repository.ts";
 
 export type StorageMode = "r2" | "mock-file" | "mock-memory";

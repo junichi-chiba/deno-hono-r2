@@ -1,5 +1,4 @@
-import type { ObjectMetadata } from "../domain/object.ts";
-export type { ObjectMetadata } from "../domain/object.ts";
+import type { ObjectMetadata } from "./object.ts";
 
 export interface ObjectMetadataStore {
   save(metadata: ObjectMetadata): Promise<void>;
