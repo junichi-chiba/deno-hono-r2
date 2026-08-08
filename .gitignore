@@ -1,5 +1,6 @@
 .env
 .mise.local.toml
+.mise.test.local.toml
 .DS_Store
 tmp/db/objects/*
 !tmp/db/objects/.gitkeep

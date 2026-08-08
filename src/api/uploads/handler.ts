@@ -10,6 +10,7 @@ import {
 import { getSignedUrl } from "presigner";
 import type { Context } from "hono";
 import {
+  maxUploadBytes,
   maxUploadLifetimeMs,
   staleUploadTtlMs,
   uploadUrlTtlMs,
@@ -20,7 +21,16 @@ import {
   saveUpload,
   updateUpload,
 } from "../../db/json.ts";
-import { bucketName, s3Client } from "../../storage.ts";
+import { bucketName, isMockStorage, s3Client } from "../../storage.ts";
+import {
+  abortMockMultipartUpload,
+  completeMockMultipartUpload,
+  createMockMultipartUpload,
+  deleteMockObject,
+  headMockObject,
+  putMockObject,
+  uploadMockPart,
+} from "../../storage/mock.ts";
 import { CompleteUploadSchema } from "./schema.ts";
 
 type UploadStrategy = "auto" | "single" | "multipart";
@@ -30,11 +40,31 @@ type UploadPart = {
   etag: string;
 };
 
+function mockUploadUrl(c: Context, suffix: string): string {
+  const requestUrl = new URL(c.req.url);
+  const uploadId = c.req.param("uploadId");
+  const marker = uploadId ? `/${uploadId}` : "";
+  const markerIndex = marker ? requestUrl.pathname.indexOf(marker) : -1;
+  const basePath = markerIndex >= 0
+    ? requestUrl.pathname.slice(0, markerIndex)
+    : requestUrl.pathname.replace(/\/$/, "");
+  return new URL(`${basePath}/mock/${suffix}`, requestUrl).toString();
+}
+
 async function deleteOrAbortUpload(upload: {
   key: string;
   strategy: "single" | "multipart";
   multipartUploadId?: string;
 }): Promise<void> {
+  if (isMockStorage) {
+    if (upload.strategy === "multipart" && upload.multipartUploadId) {
+      await abortMockMultipartUpload(upload.multipartUploadId);
+    } else {
+      await deleteMockObject(upload.key);
+    }
+    return;
+  }
+
   if (upload.strategy === "multipart" && upload.multipartUploadId) {
     await s3Client.send(
       new AbortMultipartUploadCommand({
@@ -98,15 +128,17 @@ export async function handleCreateUpload(c: Context): Promise<Response> {
       parts: [],
       status: "pending",
     });
-    const url = await getSignedUrl(
-      s3Client,
-      new PutObjectCommand({
-        Bucket: bucketName,
-        Key: upload.key,
-        ContentType: upload.expectedContentType,
-      }),
-      { expiresIn: Math.floor(uploadUrlTtlMs / 1000) },
-    );
+    const url = isMockStorage
+      ? mockUploadUrl(c, upload.id)
+      : await getSignedUrl(
+        s3Client,
+        new PutObjectCommand({
+          Bucket: bucketName,
+          Key: upload.key,
+          ContentType: upload.expectedContentType,
+        }),
+        { expiresIn: Math.floor(uploadUrlTtlMs / 1000) },
+      );
 
     return c.json({
       uploadId: upload.id,
@@ -117,13 +149,15 @@ export async function handleCreateUpload(c: Context): Promise<Response> {
     }, 201);
   }
 
-  const multipart = await s3Client.send(
-    new CreateMultipartUploadCommand({
-      Bucket: bucketName,
-      Key: key,
-      ContentType: contentType,
-    }),
-  );
+  const multipart = isMockStorage
+    ? { UploadId: await createMockMultipartUpload(key, contentType) }
+    : await s3Client.send(
+      new CreateMultipartUploadCommand({
+        Bucket: bucketName,
+        Key: key,
+        ContentType: contentType,
+      }),
+    );
   if (!multipart.UploadId) {
     throw new Error("R2 did not return a multipart upload ID");
   }
@@ -172,16 +206,18 @@ export async function handleCreatePartUpload(c: Context): Promise<Response> {
     return c.json({ error: "Upload expired" }, 410);
   }
 
-  const url = await getSignedUrl(
-    s3Client,
-    new UploadPartCommand({
-      Bucket: bucketName,
-      Key: upload.key,
-      UploadId: upload.multipartUploadId,
-      PartNumber: partNumber,
-    }),
-    { expiresIn: Math.floor(uploadUrlTtlMs / 1000) },
-  );
+  const url = isMockStorage
+    ? mockUploadUrl(c, `${upload.id}/parts/${partNumber}`)
+    : await getSignedUrl(
+      s3Client,
+      new UploadPartCommand({
+        Bucket: bucketName,
+        Key: upload.key,
+        UploadId: upload.multipartUploadId,
+        PartNumber: partNumber,
+      }),
+      { expiresIn: Math.floor(uploadUrlTtlMs / 1000) },
+    );
   const expiresAt = Math.min(
     upload.expiresAt,
     Date.now() + uploadUrlTtlMs,
@@ -246,32 +282,46 @@ export async function handleCompleteUpload(c: Context): Promise<Response> {
     }
     parts = [...parts].sort((a, b) => a.partNumber - b.partNumber);
 
-    await s3Client.send(
-      new CompleteMultipartUploadCommand({
-        Bucket: bucketName,
-        Key: upload.key,
-        UploadId: upload.multipartUploadId,
-        MultipartUpload: {
-          Parts: parts.map((part) => ({
-            ETag: part.etag,
-            PartNumber: part.partNumber,
-          })),
-        },
-      }),
-    );
+    if (isMockStorage) {
+      await completeMockMultipartUpload(upload.multipartUploadId, parts);
+    } else {
+      await s3Client.send(
+        new CompleteMultipartUploadCommand({
+          Bucket: bucketName,
+          Key: upload.key,
+          UploadId: upload.multipartUploadId,
+          MultipartUpload: {
+            Parts: parts.map((part) => ({
+              ETag: part.etag,
+              PartNumber: part.partNumber,
+            })),
+          },
+        }),
+      );
+    }
     updateUpload(upload.id, { parts });
   }
 
-  const object = await s3Client.send(
-    new HeadObjectCommand({ Bucket: bucketName, Key: upload.key }),
-  );
+  const object = isMockStorage
+    ? await headMockObject(upload.key)
+    : await s3Client.send(
+      new HeadObjectCommand({ Bucket: bucketName, Key: upload.key }),
+    );
+  if (!object) {
+    updateUpload(upload.id, { status: "failed" });
+    return c.json({ error: "Uploaded object does not exist" }, 422);
+  }
   if (
     object.ContentLength !== upload.expectedSize ||
     object.ContentType !== upload.expectedContentType
   ) {
-    await s3Client.send(
-      new DeleteObjectCommand({ Bucket: bucketName, Key: upload.key }),
-    );
+    if (isMockStorage) {
+      await deleteMockObject(upload.key);
+    } else {
+      await s3Client.send(
+        new DeleteObjectCommand({ Bucket: bucketName, Key: upload.key }),
+      );
+    }
     updateUpload(upload.id, { status: "failed" });
     return c.json({ error: "Uploaded object does not match metadata" }, 422);
   }
@@ -318,4 +368,67 @@ export async function handleExtendVerification(c: Context): Promise<Response> {
   });
 
   return c.json({ uploadId: upload.id, expiresAt });
+}
+
+function isMockUploadRequest(c: Context): boolean {
+  return isMockStorage && c.req.param("uploadId") !== undefined;
+}
+
+export async function handleMockSinglePut(c: Context): Promise<Response> {
+  const uploadId = c.req.param("uploadId");
+  if (!isMockUploadRequest(c) || !uploadId) return c.notFound();
+  const upload = findUpload(uploadId);
+  if (!upload || upload.status !== "pending" || upload.strategy !== "single") {
+    return c.json({ error: "Upload not found" }, 404);
+  }
+  if (upload.expiresAt <= Date.now()) {
+    await expireUpload(upload);
+    return c.json({ error: "Upload expired" }, 410);
+  }
+
+  const contentType = c.req.header("content-type");
+  if (contentType && contentType !== upload.expectedContentType) {
+    return c.json(
+      { error: "Content type does not match upload metadata" },
+      415,
+    );
+  }
+  const body = new Uint8Array(await c.req.raw.arrayBuffer());
+  if (body.byteLength > maxUploadBytes) {
+    return c.json({ error: "Upload exceeds the configured size limit" }, 413);
+  }
+  const etag = await putMockObject(
+    upload.key,
+    body,
+    upload.expectedContentType,
+  );
+  updateUpload(upload.id, { lastActivityAt: Date.now() + staleUploadTtlMs });
+  return new Response(null, { status: 200, headers: { etag } });
+}
+
+export async function handleMockPartPut(c: Context): Promise<Response> {
+  const uploadId = c.req.param("uploadId");
+  if (!isMockUploadRequest(c) || !uploadId) return c.notFound();
+  const partNumber = Number(c.req.param("partNumber"));
+  const upload = findUpload(uploadId);
+  if (
+    !upload ||
+    upload.status !== "pending" ||
+    upload.strategy !== "multipart" ||
+    !upload.multipartUploadId
+  ) {
+    return c.json({ error: "Upload not found" }, 404);
+  }
+  if (upload.expiresAt <= Date.now()) {
+    await expireUpload(upload);
+    return c.json({ error: "Upload expired" }, 410);
+  }
+  const body = new Uint8Array(await c.req.raw.arrayBuffer());
+  if (body.byteLength > maxUploadBytes) {
+    return c.json({ error: "Upload exceeds the configured size limit" }, 413);
+  }
+
+  const etag = await uploadMockPart(upload.multipartUploadId, partNumber, body);
+  updateUpload(upload.id, { lastActivityAt: Date.now() + staleUploadTtlMs });
+  return new Response(null, { status: 200, headers: { etag } });
 }

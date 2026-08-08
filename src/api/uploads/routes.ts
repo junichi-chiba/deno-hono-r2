@@ -6,6 +6,8 @@ import {
   handleCreatePartUpload,
   handleCreateUpload,
   handleExtendVerification,
+  handleMockPartPut,
+  handleMockSinglePut,
 } from "./handler.ts";
 import {
   CreateUploadSchema,
@@ -43,4 +45,14 @@ export const uploadRoutes = new Hono()
     "/:uploadId/extend",
     zValidator("param", UploadIdSchema),
     handleExtendVerification,
+  )
+  .put(
+    "/mock/:uploadId",
+    zValidator("param", UploadIdSchema),
+    handleMockSinglePut,
+  )
+  .put(
+    "/mock/:uploadId/parts/:partNumber",
+    zValidator("param", UploadPartParamsSchema),
+    handleMockPartPut,
   );

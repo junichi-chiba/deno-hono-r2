@@ -6,3 +6,6 @@ run = "deno task dev"
 
 [tasks.check]
 run = "deno task check"
+
+[tasks.test]
+run = "deno test --allow-env --allow-sys --allow-read=tmp/db --allow-write=tmp/db"

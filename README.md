@@ -6,13 +6,18 @@ Hono API for Deno Deploy with Cloudflare R2 object storage.
 
 ```sh
 mise install
-# Add your R2 credentials to .mise.local.toml first.
+# Add your R2 credentials to .mise.local.toml first (or use mock mode).
 mise run dev
 ```
+
+For local testing without R2, set `CLOUDFLARE_R2_STORAGE_MODE = "mock"` in
+`.mise.local.toml`. Mock signed URLs point back to the upload API and store
+objects and multipart parts under `tmp/db/objects`.
 
 Set these variables in `.mise.local.toml` for local development:
 
 ```sh
+CLOUDFLARE_R2_STORAGE_MODE=r2
 CLOUDFLARE_R2_ACCOUNT_ID=...
 CLOUDFLARE_R2_ACCESS_KEY_ID=...
 CLOUDFLARE_R2_SECRET_ACCESS_KEY=...
@@ -22,6 +27,9 @@ CLOUDFLARE_R2_UPLOAD_URL_TTL_MS=1800000
 CLOUDFLARE_R2_STALE_UPLOAD_TTL_MS=1800000
 CLOUDFLARE_R2_MAX_UPLOAD_LIFETIME_MS=3600000
 ```
+
+The account and credential variables are only required when storage mode is
+`r2`.
 
 ## Routes
 

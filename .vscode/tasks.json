@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Test (mock R2)",
+      "type": "shell",
+      "command": "mise -E test run test",
+      "group": "test",
+      "problemMatcher": []
+    }
+  ]
+}

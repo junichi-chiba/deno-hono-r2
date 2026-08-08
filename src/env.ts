@@ -1,10 +1,11 @@
 import { z } from "zod";
 
 const EnvSchema = z.object({
-  CLOUDFLARE_R2_ACCOUNT_ID: z.string().trim().min(1),
-  CLOUDFLARE_R2_ACCESS_KEY_ID: z.string().trim().min(1),
-  CLOUDFLARE_R2_SECRET_ACCESS_KEY: z.string().trim().min(1),
-  CLOUDFLARE_R2_BUCKET_NAME: z.string().trim().min(1),
+  CLOUDFLARE_R2_STORAGE_MODE: z.enum(["r2", "mock"]).default("r2"),
+  CLOUDFLARE_R2_ACCOUNT_ID: z.string().trim().default(""),
+  CLOUDFLARE_R2_ACCESS_KEY_ID: z.string().trim().default(""),
+  CLOUDFLARE_R2_SECRET_ACCESS_KEY: z.string().trim().default(""),
+  CLOUDFLARE_R2_BUCKET_NAME: z.string().trim().default(""),
   CLOUDFLARE_R2_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(
     1024 * 1024 * 1024,
   ),
@@ -18,6 +19,25 @@ const EnvSchema = z.object({
     .default(
       60 * 60 * 1000,
     ),
+}).superRefine((values, context) => {
+  if (values.CLOUDFLARE_R2_STORAGE_MODE === "mock") return;
+
+  for (
+    const name of [
+      "CLOUDFLARE_R2_ACCOUNT_ID",
+      "CLOUDFLARE_R2_ACCESS_KEY_ID",
+      "CLOUDFLARE_R2_SECRET_ACCESS_KEY",
+      "CLOUDFLARE_R2_BUCKET_NAME",
+    ] as const
+  ) {
+    if (!values[name]) {
+      context.addIssue({
+        code: "custom",
+        path: [name],
+        message: `${name} is required when R2 storage mode is "r2"`,
+      });
+    }
+  }
 });
 
 const result = EnvSchema.safeParse(Deno.env.toObject());
