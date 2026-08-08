@@ -24,6 +24,7 @@ const ObjectsPage: FC = () => (
           <br />
           <button id="single" type="button">Upload single</button>
           <button id="multipart" type="button">Upload multipart</button>
+          <button id="cleanup" type="button">Run cleanup</button>
           <p id="status" role="status"></p>
         </section>
         <section>
@@ -66,6 +67,12 @@ async function upload(strategy) {
 }
 document.querySelector("#single").onclick = () => upload("single").catch((error) => status.textContent = error.message);
 document.querySelector("#multipart").onclick = () => upload("multipart").catch((error) => status.textContent = error.message);
+document.querySelector("#cleanup").onclick = async () => {
+  status.textContent = "Running cleanup...";
+  const response = await fetch("/api/uploads/cleanup", {method:"POST"});
+  const result = await response.json();
+  status.textContent = response.ok ? result.status : (result.error || "Cleanup unavailable.");
+};
 render();
 `;
 

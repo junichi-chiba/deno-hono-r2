@@ -72,6 +72,7 @@ export function createUploadHandlers(
   }
 
   async function handleCleanup(c: Context): Promise<Response> {
+    if (!storage.isMock) return c.notFound();
     await cleanupExpiredUploads();
     return c.json({ status: "cleanup complete" });
   }
