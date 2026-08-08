@@ -1,4 +1,12 @@
-import { DeleteObjectCommand, HeadObjectCommand, PutObjectCommand } from "s3";
+import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
+  CreateMultipartUploadCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
+  UploadPartCommand,
+} from "s3";
 import { getSignedUrl } from "presigner";
 import type { Context } from "hono";
 import {
@@ -6,56 +14,191 @@ import {
   staleUploadTtlMs,
   uploadUrlTtlMs,
 } from "../../env.ts";
-import { bucketName, s3Client } from "../../storage.ts";
 import {
   findExpiredUploads,
   findUpload,
   saveUpload,
   updateUpload,
 } from "../../db/json.ts";
+import { bucketName, s3Client } from "../../storage.ts";
+import { CompleteUploadSchema } from "./schema.ts";
 
-export async function handleCreateUpload(c: Context): Promise<Response> {
+type UploadStrategy = "auto" | "single" | "multipart";
+
+type UploadPart = {
+  partNumber: number;
+  etag: string;
+};
+
+async function deleteOrAbortUpload(upload: {
+  key: string;
+  strategy: "single" | "multipart";
+  multipartUploadId?: string;
+}): Promise<void> {
+  if (upload.strategy === "multipart" && upload.multipartUploadId) {
+    await s3Client.send(
+      new AbortMultipartUploadCommand({
+        Bucket: bucketName,
+        Key: upload.key,
+        UploadId: upload.multipartUploadId,
+      }),
+    );
+    return;
+  }
+
+  await s3Client.send(
+    new DeleteObjectCommand({ Bucket: bucketName, Key: upload.key }),
+  );
+}
+
+async function expireUpload(upload: {
+  id: string;
+  key: string;
+  strategy: "single" | "multipart";
+  multipartUploadId?: string;
+}): Promise<void> {
+  await deleteOrAbortUpload(upload);
+  updateUpload(upload.id, { status: "expired" });
+}
+
+export async function cleanupExpiredUploads(): Promise<void> {
   const expiredUploads = findExpiredUploads();
   await Promise.all(
     expiredUploads.map(async (expired) => {
-      await s3Client.send(
-        new DeleteObjectCommand({ Bucket: bucketName, Key: expired.key }),
-      );
-      updateUpload(expired.id, { status: "expired" });
+      await expireUpload(expired);
     }),
   );
+}
 
-  const { size, contentType } = await c.req.json<{
-    size: number;
-    contentType: string;
-  }>();
+export async function handleCreateUpload(c: Context): Promise<Response> {
+  await cleanupExpiredUploads();
+
+  const { size, contentType, strategy: requestedStrategy } = await c.req
+    .json<{
+      size: number;
+      contentType: string;
+      strategy?: UploadStrategy;
+    }>();
+  const strategy = requestedStrategy === "single" ? "single" : "multipart";
   const id = crypto.randomUUID();
+  const key = `uploads/${id}`;
+  const now = Date.now();
+  const expiresAt = now + uploadUrlTtlMs;
+
+  if (strategy === "single") {
+    const upload = saveUpload({
+      id,
+      key,
+      expectedSize: size,
+      expectedContentType: contentType,
+      createdAt: now,
+      expiresAt,
+      lastActivityAt: now + staleUploadTtlMs,
+      strategy,
+      parts: [],
+      status: "pending",
+    });
+    const url = await getSignedUrl(
+      s3Client,
+      new PutObjectCommand({
+        Bucket: bucketName,
+        Key: upload.key,
+        ContentType: upload.expectedContentType,
+      }),
+      { expiresIn: Math.floor(uploadUrlTtlMs / 1000) },
+    );
+
+    return c.json({
+      uploadId: upload.id,
+      key: upload.key,
+      strategy: upload.strategy,
+      url,
+      expiresAt: upload.expiresAt,
+    }, 201);
+  }
+
+  const multipart = await s3Client.send(
+    new CreateMultipartUploadCommand({
+      Bucket: bucketName,
+      Key: key,
+      ContentType: contentType,
+    }),
+  );
+  if (!multipart.UploadId) {
+    throw new Error("R2 did not return a multipart upload ID");
+  }
+
   const upload = saveUpload({
     id,
-    key: `uploads/${id}`,
+    key,
     expectedSize: size,
     expectedContentType: contentType,
-    createdAt: Date.now(),
-    expiresAt: Date.now() + uploadUrlTtlMs,
-    lastActivityAt: Date.now() + staleUploadTtlMs,
+    createdAt: now,
+    expiresAt,
+    lastActivityAt: now + staleUploadTtlMs,
+    strategy,
+    multipartUploadId: multipart.UploadId,
+    parts: [],
     status: "pending",
   });
-  const url = await getSignedUrl(
-    s3Client,
-    new PutObjectCommand({
-      Bucket: bucketName,
-      Key: upload.key,
-      ContentType: upload.expectedContentType,
-    }),
-    { expiresIn: Math.floor(uploadUrlTtlMs / 1000) },
-  );
 
   return c.json({
     uploadId: upload.id,
+    multipartUploadId: upload.multipartUploadId,
     key: upload.key,
-    url,
+    strategy: upload.strategy,
     expiresAt: upload.expiresAt,
   }, 201);
+}
+
+export async function handleCreatePartUpload(c: Context): Promise<Response> {
+  const uploadId = c.req.param("uploadId");
+  const partNumber = Number(c.req.param("partNumber"));
+  if (!uploadId || !Number.isSafeInteger(partNumber)) {
+    return c.json({ error: "Upload not found" }, 404);
+  }
+
+  const upload = findUpload(uploadId);
+  if (
+    !upload ||
+    upload.status !== "pending" ||
+    upload.strategy !== "multipart" ||
+    !upload.multipartUploadId
+  ) {
+    return c.json({ error: "Upload not found" }, 404);
+  }
+  if (upload.expiresAt <= Date.now()) {
+    await expireUpload(upload);
+    return c.json({ error: "Upload expired" }, 410);
+  }
+
+  const url = await getSignedUrl(
+    s3Client,
+    new UploadPartCommand({
+      Bucket: bucketName,
+      Key: upload.key,
+      UploadId: upload.multipartUploadId,
+      PartNumber: partNumber,
+    }),
+    { expiresIn: Math.floor(uploadUrlTtlMs / 1000) },
+  );
+  const expiresAt = Math.min(
+    upload.expiresAt,
+    Date.now() + uploadUrlTtlMs,
+  );
+  updateUpload(upload.id, {
+    expiresAt,
+    lastActivityAt: Date.now() + staleUploadTtlMs,
+  });
+
+  return c.json({
+    uploadId: upload.id,
+    multipartUploadId: upload.multipartUploadId,
+    key: upload.key,
+    partNumber,
+    url,
+    expiresAt,
+  });
 }
 
 export async function handleCompleteUpload(c: Context): Promise<Response> {
@@ -66,8 +209,57 @@ export async function handleCompleteUpload(c: Context): Promise<Response> {
     return c.json({ error: "Upload not found" }, 404);
   }
   if (upload.expiresAt <= Date.now()) {
-    updateUpload(upload.id, { status: "expired" });
+    await expireUpload(upload);
     return c.json({ error: "Upload expired" }, 410);
+  }
+
+  if (upload.strategy === "multipart") {
+    if (!upload.multipartUploadId) {
+      return c.json({ error: "Multipart upload is not initialized" }, 409);
+    }
+    let parts: UploadPart[];
+    try {
+      const result = CompleteUploadSchema.safeParse(await c.req.json());
+      if (!result.success) {
+        return c.json({ error: "Invalid multipart parts" }, 400);
+      }
+      parts = result.data.parts;
+    } catch {
+      return c.json({ error: "Multipart parts are required" }, 400);
+    }
+    if (!Array.isArray(parts) || parts.length === 0) {
+      return c.json({ error: "Multipart parts are required" }, 400);
+    }
+    const partNumbers = new Set<number>();
+    for (const part of parts) {
+      if (
+        !Number.isSafeInteger(part.partNumber) ||
+        part.partNumber < 1 ||
+        part.partNumber > 10_000 ||
+        typeof part.etag !== "string" ||
+        part.etag.trim().length === 0 ||
+        partNumbers.has(part.partNumber)
+      ) {
+        return c.json({ error: "Invalid multipart parts" }, 400);
+      }
+      partNumbers.add(part.partNumber);
+    }
+    parts = [...parts].sort((a, b) => a.partNumber - b.partNumber);
+
+    await s3Client.send(
+      new CompleteMultipartUploadCommand({
+        Bucket: bucketName,
+        Key: upload.key,
+        UploadId: upload.multipartUploadId,
+        MultipartUpload: {
+          Parts: parts.map((part) => ({
+            ETag: part.etag,
+            PartNumber: part.partNumber,
+          })),
+        },
+      }),
+    );
+    updateUpload(upload.id, { parts });
   }
 
   const object = await s3Client.send(
@@ -88,7 +280,20 @@ export async function handleCompleteUpload(c: Context): Promise<Response> {
   return c.json({ uploadId: upload.id, status: "complete" });
 }
 
-export function handleExtendVerification(c: Context): Response {
+export async function handleAbortUpload(c: Context): Promise<Response> {
+  const uploadId = c.req.param("uploadId");
+  if (!uploadId) return c.json({ error: "Upload not found" }, 404);
+  const upload = findUpload(uploadId);
+  if (!upload || upload.status !== "pending") {
+    return c.json({ error: "Upload not found" }, 404);
+  }
+
+  await deleteOrAbortUpload(upload);
+  updateUpload(upload.id, { status: "aborted" });
+  return c.json({ uploadId: upload.id, status: "aborted" });
+}
+
+export async function handleExtendVerification(c: Context): Promise<Response> {
   const uploadId = c.req.param("uploadId");
   if (!uploadId) return c.json({ error: "Upload not found" }, 404);
 
@@ -99,7 +304,7 @@ export function handleExtendVerification(c: Context): Response {
 
   const now = Date.now();
   if (upload.expiresAt <= now) {
-    updateUpload(upload.id, { status: "expired" });
+    await expireUpload(upload);
     return c.json({ error: "Upload expired" }, 410);
   }
 

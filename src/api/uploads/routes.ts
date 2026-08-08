@@ -1,25 +1,46 @@
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import {
+  handleAbortUpload,
   handleCompleteUpload,
+  handleCreatePartUpload,
   handleCreateUpload,
   handleExtendVerification,
 } from "./handler.ts";
-import { createUploadSchema, uploadIdSchema } from "./schema.ts";
+import {
+  CreateUploadSchema,
+  UploadIdSchema,
+  UploadPartParamsSchema,
+} from "./schema.ts";
 
 export const uploadRoutes = new Hono()
   .post(
     "/",
-    zValidator("json", createUploadSchema),
+    zValidator("json", CreateUploadSchema),
     handleCreateUpload,
   )
   .post(
     "/:uploadId/complete",
-    zValidator("param", uploadIdSchema),
+    zValidator("param", UploadIdSchema),
     handleCompleteUpload,
   )
   .post(
+    "/:uploadId/parts/:partNumber",
+    zValidator("param", UploadPartParamsSchema),
+    handleCreatePartUpload,
+  )
+  .post(
+    "/:uploadId/abort",
+    zValidator("param", UploadIdSchema),
+    handleAbortUpload,
+  )
+  .delete(
+    "/:uploadId",
+    zValidator("param", UploadIdSchema),
+    handleAbortUpload,
+  )
+  .post(
     "/:uploadId/extend",
-    zValidator("param", uploadIdSchema),
+    zValidator("param", UploadIdSchema),
     handleExtendVerification,
   );
