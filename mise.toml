@@ -1,0 +1,8 @@
+[tools]
+deno = "latest"
+
+[tasks.dev]
+run = "deno task dev"
+
+[tasks.check]
+run = "deno task check"
