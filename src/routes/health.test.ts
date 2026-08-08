@@ -1,10 +1,10 @@
 import { assertEquals } from "@std/assert";
 import { Hono } from "hono";
-import { health } from "./health.ts";
+import { healthRoutes } from "./health.ts";
 
 Deno.test("GET /health returns a healthy response", async () => {
   const app = new Hono();
-  app.route("/health", health);
+  app.route("/health", healthRoutes);
 
   const response = await app.request("/health");
 

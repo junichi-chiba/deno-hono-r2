@@ -17,6 +17,5 @@ const Welcome: FC = () => (
   </html>
 );
 
-const welcome = new Hono().get("/", (c) => c.html(<Welcome />));
-
-export default welcome;
+export const welcomeRoutes = new Hono()
+  .get("/", (c) => c.html(<Welcome />));

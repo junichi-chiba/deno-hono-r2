@@ -22,8 +22,8 @@ CLOUDFLARE_R2_BUCKET_NAME=...
 ## Routes
 
 - `GET /health`
-- `GET /objects/:key`
-- `PUT /objects/:key`
-- `DELETE /objects/:key`
+- `GET /api/objects/:key`
+- `PUT /api/objects/:key`
+- `DELETE /api/objects/:key`
 
 Connect this repository to Deno Deploy with `src/index.ts` as the entrypoint.
