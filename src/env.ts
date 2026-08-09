@@ -24,6 +24,8 @@ const EnvSchema = z.object({
     .default(10),
   CLOUDFLARE_R2_DEDUP_MAX_RETRIES: z.coerce.number().int().nonnegative()
     .default(3),
+  CLOUDFLARE_R2_DUPLICATE_RETENTION_MS: z.coerce.number().int().nonnegative()
+    .default(24 * 60 * 60 * 1000),
   CLOUDFLARE_R2_CLEANUP_CRON: z.string().trim().min(1).default("*/15 * * * *"),
 }).superRefine((values, context) => {
   if (values.CLOUDFLARE_R2_STORAGE_MODE !== "r2") return;
@@ -62,6 +64,7 @@ export type AppConfig = {
   maxUploadLifetimeMs: number;
   dedupRetryAfterSeconds: number;
   dedupMaxRetries: number;
+  duplicateRetentionMs?: number;
   cleanupCron: string;
 };
 
@@ -72,5 +75,6 @@ export const appConfig: AppConfig = {
   maxUploadLifetimeMs: env.CLOUDFLARE_R2_MAX_UPLOAD_LIFETIME_MS,
   dedupRetryAfterSeconds: env.CLOUDFLARE_R2_DEDUP_RETRY_AFTER_SECONDS,
   dedupMaxRetries: env.CLOUDFLARE_R2_DEDUP_MAX_RETRIES,
+  duplicateRetentionMs: env.CLOUDFLARE_R2_DUPLICATE_RETENTION_MS,
   cleanupCron: env.CLOUDFLARE_R2_CLEANUP_CRON,
 };

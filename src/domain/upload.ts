@@ -27,7 +27,15 @@ export const UploadRecordSchema = ObjectMetadataSchema.pick({
   strategy: z.enum(["single", "multipart"]).default("single"),
   multipartUploadId: z.string().min(1).optional(),
   parts: z.array(UploadPartSchema).default([]),
-  status: z.enum(["pending", "complete", "failed", "expired", "aborted"]),
+  status: z.enum([
+    "pending",
+    "complete",
+    "duplicate",
+    "failed",
+    "expired",
+    "aborted",
+  ]),
+  duplicateOf: z.string().min(1).optional(),
   verifiedAt: z.number().int().nonnegative().optional(),
 });
 

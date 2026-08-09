@@ -7,6 +7,7 @@ import type { UploadRecord, UploadRecordInput } from "../../domain/upload.ts";
 import type { ObjectMetadataStore } from "../../domain/ports.ts";
 import type { UploadRepository } from "../upload-repository.ts";
 import { z } from "zod";
+import { mockStorageDelay } from "../../storage/mock/delay.ts";
 
 const metadataPath = "tmp/db/metadata/objects.json";
 const uploadsPath = "tmp/db/uploads/records.json";
@@ -33,9 +34,14 @@ async function writeMetadataIndex(
 
 export class FileObjectMetadataStore implements ObjectMetadataStore {
   async save(metadata: ObjectMetadata): Promise<void> {
+    await mockStorageDelay();
     const index = await readMetadataIndex();
     index[metadata.key] = ObjectMetadataSchema.parse(metadata);
     await writeMetadataIndex(index);
+  }
+
+  async list(): Promise<ObjectMetadata[]> {
+    return Object.values(await readMetadataIndex());
   }
 
   async find(key: string): Promise<ObjectMetadata | undefined> {
@@ -43,10 +49,15 @@ export class FileObjectMetadataStore implements ObjectMetadataStore {
     return index[key];
   }
 
-  async findByDigest(contentDigest: string): Promise<ObjectMetadata | undefined> {
+  async findByDigest(
+    contentDigest: string,
+  ): Promise<ObjectMetadata | undefined> {
+    const normalizedDigest = contentDigest.toLowerCase();
     const index = await readMetadataIndex();
     return Object.values(index).find(
-      (metadata) => metadata.contentDigest === contentDigest,
+      (metadata) =>
+        metadata.contentDigest.toLowerCase() === normalizedDigest &&
+        metadata.status === "active",
     );
   }
 

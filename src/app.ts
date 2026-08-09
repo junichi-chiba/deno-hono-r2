@@ -23,6 +23,7 @@ export function createApp(deps: AppDependencies): Hono {
     maxUploadLifetimeMs: 60 * 60 * 1000,
     dedupRetryAfterSeconds: 10,
     dedupMaxRetries: 3,
+    duplicateRetentionMs: 24 * 60 * 60 * 1000,
     cleanupCron: "*/15 * * * *",
   };
   const api = createApi(

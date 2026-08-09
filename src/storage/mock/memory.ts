@@ -5,6 +5,7 @@ import type {
   SignedUploadPartInput,
   StoredObject,
 } from "../interfaces.ts";
+import { mockStorageDelay } from "./delay.ts";
 
 import type { UploadPart } from "../../domain/upload.ts";
 
@@ -83,6 +84,7 @@ export class MockMemoryStorage implements ObjectStorage {
     body: Uint8Array,
     contentType: string,
   ): Promise<string> {
+    await mockStorageDelay();
     this.#objects.set(key, { body: body.slice(), contentType });
     return await bodyEtag(body);
   }
@@ -131,11 +133,12 @@ export class MockMemoryStorage implements ObjectStorage {
     );
   }
 
-  completeMultipartUpload(
+  async completeMultipartUpload(
     _key: string,
     uploadId: string,
     parts: UploadPart[],
   ): Promise<void> {
+    await mockStorageDelay();
     const upload = this.#multipart.completeMultipartUpload(uploadId, parts);
     this.#objects.set(upload.key, {
       body: upload.object,

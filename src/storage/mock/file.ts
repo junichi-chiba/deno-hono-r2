@@ -11,6 +11,7 @@ import type {
   SignedUploadPartInput,
   StoredObject,
 } from "../interfaces.ts";
+import { mockStorageDelay } from "./delay.ts";
 
 const multipartDirectory = "tmp/db/objects/.multipart";
 
@@ -60,42 +61,29 @@ async function etag(body: Uint8Array): Promise<string> {
   return `"${hex}"`;
 }
 
-async function digest(body: Uint8Array): Promise<string> {
-  const hash = await crypto.subtle.digest("SHA-256", body.slice());
-  return [...new Uint8Array(hash)].map((byte) =>
-    byte.toString(16).padStart(2, "0")
-  ).join("");
-}
-
 export async function putMockObject(
-  metadataStore: ObjectMetadataStore,
+  _metadataStore: ObjectMetadataStore,
   key: string,
   body: Uint8Array,
   contentType: string,
 ): Promise<string> {
+  await mockStorageDelay();
   await writeLocalObject(key, body);
-  const now = Date.now();
-  await metadataStore.save({
-    key,
-    size: body.byteLength,
-    contentType,
-    contentDigest: await digest(body),
-    etag: await etag(body),
-    createdAt: (await metadataStore.find(key))?.createdAt ?? now,
-    updatedAt: now,
-  });
-  return (await metadataStore.find(key))!.etag;
+  void contentType;
+  return await etag(body);
 }
 
 export async function headMockObject(
   metadataStore: ObjectMetadataStore,
   key: string,
+  contentTypes = new Map<string, string>(),
 ): Promise<{ ContentLength: number; ContentType: string } | undefined> {
   const body = await readLocalObject(key);
   if (!body) return undefined;
   return {
     ContentLength: body.byteLength,
-    ContentType: (await metadataStore.find(key))?.contentType ??
+    ContentType: contentTypes.get(key) ??
+      (await metadataStore.find(key))?.contentType ??
       "application/octet-stream",
   };
 }
@@ -140,10 +128,10 @@ export async function uploadMockPart(
 }
 
 export async function completeMockMultipartUpload(
-  metadataStore: ObjectMetadataStore,
+  _metadataStore: ObjectMetadataStore,
   uploadId: string,
   parts: { partNumber: number; etag: string }[],
-): Promise<void> {
+): Promise<{ key: string; contentType: string }> {
   const manifest = await readManifest(uploadId);
   const orderedParts = [...parts].sort((a, b) => a.partNumber - b.partNumber);
   for (const part of orderedParts) {
@@ -164,8 +152,9 @@ export async function completeMockMultipartUpload(
     body.set(part, offset);
     offset += part.byteLength;
   }
-  await putMockObject(metadataStore, manifest.key, body, manifest.contentType);
+  await putMockObject(_metadataStore, manifest.key, body, manifest.contentType);
   await removeUploadDirectory(uploadId);
+  return { key: manifest.key, contentType: manifest.contentType };
 }
 
 export async function abortMockMultipartUpload(
@@ -176,6 +165,7 @@ export async function abortMockMultipartUpload(
 
 export class MockFileStorage implements ObjectStorage {
   readonly isMock = true;
+  readonly #contentTypes = new Map<string, string>();
 
   constructor(private readonly metadataStore: ObjectMetadataStore) {}
 
@@ -184,6 +174,7 @@ export class MockFileStorage implements ObjectStorage {
     body: Uint8Array,
     contentType: string,
   ): Promise<string> {
+    this.#contentTypes.set(key, contentType);
     return await putMockObject(this.metadataStore, key, body, contentType);
   }
 
@@ -193,17 +184,19 @@ export class MockFileStorage implements ObjectStorage {
     return {
       body,
       ContentLength: body.byteLength,
-      ContentType: (await this.metadataStore.find(key))?.contentType ??
+      ContentType: this.#contentTypes.get(key) ??
+        (await this.metadataStore.find(key))?.contentType ??
         "application/octet-stream",
     };
   }
 
   async headObject(key: string): Promise<ObjectInfo | undefined> {
-    return await headMockObject(this.metadataStore, key);
+    return await headMockObject(this.metadataStore, key, this.#contentTypes);
   }
 
   async deleteObject(key: string): Promise<void> {
     await deleteMockObject(this.metadataStore, key);
+    this.#contentTypes.delete(key);
   }
 
   async createMultipartUpload(
@@ -227,7 +220,12 @@ export class MockFileStorage implements ObjectStorage {
     uploadId: string,
     parts: { partNumber: number; etag: string }[],
   ): Promise<void> {
-    await completeMockMultipartUpload(this.metadataStore, uploadId, parts);
+    const completed = await completeMockMultipartUpload(
+      this.metadataStore,
+      uploadId,
+      parts,
+    );
+    this.#contentTypes.set(completed.key, completed.contentType);
   }
 
   async abortMultipartUpload(_key: string, uploadId: string): Promise<void> {

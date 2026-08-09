@@ -5,14 +5,22 @@ import {
   ObjectMetadataSchema,
 } from "../../domain/object.ts";
 import type { ObjectMetadataStore } from "../../domain/ports.ts";
+import { mockStorageDelay } from "../../storage/mock/delay.ts";
 
 export class MemoryObjectMetadataStore implements ObjectMetadataStore {
   readonly #metadata = new Map<string, ObjectMetadata>();
 
-  save(metadata: ObjectMetadata): Promise<void> {
+  async save(metadata: ObjectMetadata): Promise<void> {
+    await mockStorageDelay();
     const validatedMetadata = ObjectMetadataSchema.parse(metadata);
     this.#metadata.set(validatedMetadata.key, validatedMetadata);
     return Promise.resolve();
+  }
+
+  list(): Promise<ObjectMetadata[]> {
+    return Promise.resolve(
+      [...this.#metadata.values()].map((metadata) => ({ ...metadata })),
+    );
   }
 
   find(key: string): Promise<ObjectMetadata | undefined> {
@@ -21,8 +29,11 @@ export class MemoryObjectMetadataStore implements ObjectMetadataStore {
   }
 
   findByDigest(contentDigest: string): Promise<ObjectMetadata | undefined> {
+    const normalizedDigest = contentDigest.toLowerCase();
     const metadata = [...this.#metadata.values()].find(
-      (item) => item.contentDigest === contentDigest,
+      (item) =>
+        item.contentDigest.toLowerCase() === normalizedDigest &&
+        item.status === "active",
     );
     return Promise.resolve(metadata ? { ...metadata } : undefined);
   }

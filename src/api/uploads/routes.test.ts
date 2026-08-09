@@ -140,3 +140,152 @@ Deno.test({
     await app.request(`/api/objects/${upload.key}`, { method: "DELETE" });
   },
 });
+
+Deno.test({
+  name: "completion records competing content as a retained duplicate",
+  async fn(): Promise<void> {
+    const objectStorage = new MockMemoryStorage();
+    const objectMetadataStore = new MemoryObjectMetadataStore();
+    const app = createApplication({
+      objectStorage,
+      uploadRepository: new MemoryUploadRepository(),
+      objectMetadataStore,
+      config: {
+        maxUploadBytes: 1024 * 1024,
+        uploadUrlTtlMs: 30 * 60 * 1000,
+        staleUploadTtlMs: 30 * 60 * 1000,
+        maxUploadLifetimeMs: 60 * 60 * 1000,
+        dedupRetryAfterSeconds: 10,
+        dedupMaxRetries: 3,
+        duplicateRetentionMs: 60 * 60 * 1000,
+        cleanupCron: "*/15 * * * *",
+      },
+    });
+    const digest =
+      "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+    async function create(force = false): Promise<
+      { uploadId: string; key: string; url: string }
+    > {
+      const response = await app.request("/api/uploads", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          size: 5,
+          contentType: "text/plain",
+          contentDigest: digest,
+          strategy: "single",
+          force,
+        }),
+      });
+      return await response.json();
+    }
+
+    const first = await create();
+    await app.request(first.url, {
+      method: "PUT",
+      headers: { "content-type": "text/plain" },
+      body: "hello",
+    });
+    const firstCompletion = await app.request(
+      `/api/uploads/${first.uploadId}/complete`,
+      { method: "POST" },
+    );
+    assertEquals((await firstCompletion.json()).status, "complete");
+
+    const second = await create(true);
+    await app.request(second.url, {
+      method: "PUT",
+      headers: { "content-type": "text/plain" },
+      body: "hello",
+    });
+    const secondCompletion = await app.request(
+      `/api/uploads/${second.uploadId}/complete`,
+      { method: "POST" },
+    );
+    assertEquals(await secondCompletion.json(), {
+      uploadId: second.uploadId,
+      status: "duplicate",
+      duplicateOf: first.key,
+    });
+    assertEquals(
+      (await objectMetadataStore.find(second.key))?.status,
+      "duplicate",
+    );
+    assertEquals(
+      (await app.request(`/api/objects/${second.key}`)).status,
+      200,
+    );
+  },
+});
+
+Deno.test({
+  name: "duplicate cleanup deletes retained content and preserves its record",
+  async fn(): Promise<void> {
+    const objectStorage = new MockMemoryStorage();
+    const objectMetadataStore = new MemoryObjectMetadataStore();
+    const uploads = new MemoryUploadRepository();
+    const app = createApplication({
+      objectStorage,
+      uploadRepository: uploads,
+      objectMetadataStore,
+      config: {
+        maxUploadBytes: 1024 * 1024,
+        uploadUrlTtlMs: 30 * 60 * 1000,
+        staleUploadTtlMs: 30 * 60 * 1000,
+        maxUploadLifetimeMs: 60 * 60 * 1000,
+        dedupRetryAfterSeconds: 10,
+        dedupMaxRetries: 3,
+        duplicateRetentionMs: 0,
+        cleanupCron: "*/15 * * * *",
+      },
+    });
+    const digest =
+      "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+    async function upload(force: boolean): Promise<
+      { uploadId: string; key: string; url: string }
+    > {
+      const response = await app.request("/api/uploads", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          size: 5,
+          contentType: "text/plain",
+          contentDigest: digest,
+          strategy: "single",
+          force,
+        }),
+      });
+      const created = await response.json();
+      await app.request(created.url, {
+        method: "PUT",
+        headers: { "content-type": "text/plain" },
+        body: "hello",
+      });
+      await app.request(`/api/uploads/${created.uploadId}/complete`, {
+        method: "POST",
+      });
+      return created;
+    }
+
+    const first = await upload(false);
+    const duplicate = await upload(true);
+    assertEquals(
+      (await objectMetadataStore.find(duplicate.key))?.status,
+      "duplicate",
+    );
+    await app.request("/api/uploads/cleanup", { method: "POST" });
+    assertEquals(
+      (await app.request(`/api/objects/${duplicate.key}`)).status,
+      404,
+    );
+    assertEquals(
+      (await objectMetadataStore.find(duplicate.key))?.status,
+      "deleted",
+    );
+    assertEquals(
+      (await app.request(`/api/objects/${first.key}`)).status,
+      200,
+    );
+    assertEquals(uploads.find(duplicate.uploadId)?.status, "duplicate");
+  },
+});

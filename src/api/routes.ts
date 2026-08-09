@@ -13,7 +13,7 @@ export function createApi(
   objectMetadataStore: ObjectMetadataStore,
 ): Hono {
   return new Hono()
-    .route("/objects", createObjectRoutes(storage, config))
+    .route("/objects", createObjectRoutes(storage, config, objectMetadataStore))
     .route(
       "/uploads",
       createUploadRoutes(storage, uploads, config, objectMetadataStore),
