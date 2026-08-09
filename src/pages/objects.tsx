@@ -24,15 +24,6 @@ const ObjectsPage: FC = () => (
           <br />
           <button id="single" type="button">Upload single</button>
           <button id="multipart" type="button">Upload multipart</button>
-          <button id="force-single" type="button">Force upload single</button>
-          <button id="force-multipart" type="button">
-            Force upload multipart
-          </button>
-          <button id="slow-single" type="button">Slow upload single</button>
-          <button id="slow-multipart" type="button">
-            Slow upload multipart
-          </button>
-          <button id="cleanup" type="button">Run cleanup</button>
           <p id="status" role="status"></p>
         </section>
         <section>
@@ -73,21 +64,24 @@ async function load() {
   saved.push(...loaded);
   render();
 }
-async function upload(strategy, force = false, delayMs = 0) {
+async function upload(strategy) {
   const body = new TextEncoder().encode(document.querySelector("#sample").value);
   const digest = await digestHex(body);
   const checksumSHA256 = await digestBase64(body);
   status.textContent = "Creating " + strategy + " upload...";
-  const createResponse = await fetch("/api/uploads", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({size:body.byteLength,contentType:"text/plain",contentDigest:digest,strategy,force})});
+  const createResponse = await fetch("/api/uploads", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({size:body.byteLength,contentType:"text/plain",contentDigest:digest,strategy})});
   const created = await createResponse.json();
   if (!createResponse.ok) throw new Error(created.error || "Unable to create upload.");
-  if (delayMs > 0) {
-    status.textContent = strategy + " upload in progress...";
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
-  }
   if (strategy === "single") {
     const uploaded = await fetch(created.url, {method:"PUT",headers:{"content-type":"text/plain","x-amz-checksum-sha256":checksumSHA256},body});
     if (!uploaded.ok) throw new Error("Single upload failed.");
+    const completed = await fetch("/api/uploads/" + created.uploadId + "/complete", {method:"POST"});
+    if (!completed.ok) throw new Error("Single completion failed.");
+    const result = await completed.json();
+    if (result.status === "duplicate") {
+      status.textContent = "Duplicate upload retained temporarily.";
+      return;
+    }
   } else {
     const partResponse = await fetch("/api/uploads/" + created.uploadId + "/parts/1", {method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({contentDigest:digest})});
     const part = await partResponse.json();
@@ -96,26 +90,17 @@ async function upload(strategy, force = false, delayMs = 0) {
     if (!uploaded.ok) throw new Error("Multipart upload failed.");
     const completed = await fetch("/api/uploads/" + created.uploadId + "/complete", {method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({parts:[{partNumber:1,etag:uploaded.headers.get("etag") || part.etag}]})});
     if (!completed.ok) throw new Error("Multipart completion failed.");
+    const result = await completed.json();
+    if (result.status === "duplicate") {
+      status.textContent = "Duplicate upload retained temporarily.";
+      return;
+    }
   }
   add(created.key);
   status.textContent = "Upload complete.";
 }
 document.querySelector("#single").onclick = () => upload("single").catch((error) => status.textContent = error.message);
 document.querySelector("#multipart").onclick = () => upload("multipart").catch((error) => status.textContent = error.message);
-document.querySelector("#force-single").onclick = () => upload("single", true).catch((error) => status.textContent = error.message);
-document.querySelector("#force-multipart").onclick = () => upload("multipart", true).catch((error) => status.textContent = error.message);
-document.querySelector("#slow-single").onclick = () => upload("single", true, 20000).catch((error) => status.textContent = error.message);
-document.querySelector("#slow-multipart").onclick = () => upload("multipart", true, 20000).catch((error) => status.textContent = error.message);
-document.querySelector("#cleanup").onclick = async () => {
-  status.textContent = "Running cleanup...";
-  const response = await fetch("/api/uploads/cleanup", {method:"POST"});
-  if (!response.ok) {
-    status.textContent = "Cleanup unavailable.";
-    return;
-  }
-  const result = await response.json();
-  status.textContent = result.status;
-};
 load().catch((error) => status.textContent = error.message);
 `;
 

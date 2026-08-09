@@ -5,4 +5,3 @@
 tmp/db/objects/*
 !tmp/db/objects/.gitkeep
 tmp/db/metadata/*
-tmp/db/uploads/*

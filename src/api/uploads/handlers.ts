@@ -69,7 +69,7 @@ export function createUploadHandlers(
     multipartUploadId?: string;
   }): Promise<void> {
     await deleteOrAbortUpload(upload);
-    uploads.update(upload.id, { status: "expired" });
+    uploads.delete(upload.id);
   }
 
   async function cleanupExpiredUploads(): Promise<void> {
@@ -77,22 +77,21 @@ export function createUploadHandlers(
       uploads.findExpired().map(async (expired) => await expireUpload(expired)),
     );
     const now = Date.now();
-    const retentionMs = config.duplicateRetentionMs ?? 24 * 60 * 60 * 1000;
-    const duplicates = (await objectMetadataStore.list()).filter(
+    const duplicateObjects = (await objectMetadataStore.list()).flatMap(
       (metadata) =>
-        metadata.status === "duplicate" &&
-        metadata.updatedAt + retentionMs <= now,
+        metadata.duplicateStorageKeys
+          .filter((duplicate) =>
+            duplicate.status === "duplicate" && duplicate.retentionUntil <= now
+          )
+          .map((duplicate) => ({ metadata, duplicate })),
     );
-    await Promise.all(
-      duplicates.map(async (duplicate) => {
-        await storage.deleteObject(duplicate.key);
-        await objectMetadataStore.save({
-          ...duplicate,
-          status: "deleted",
-          updatedAt: now,
-        });
-      }),
-    );
+    await Promise.all(duplicateObjects.map(async ({ metadata, duplicate }) => {
+      await storage.deleteObject(duplicate.key);
+      await objectMetadataStore.removeDuplicate(
+        metadata.contentDigest,
+        duplicate.key,
+      );
+    }));
   }
 
   async function handleCleanup(c: Context): Promise<Response> {
@@ -107,53 +106,16 @@ export function createUploadHandlers(
       size,
       contentType,
       contentDigest,
-      force = false,
       strategy: requestedStrategy,
     } = await c.req
       .json<{
         size: number;
         contentType: string;
         contentDigest: string;
-        force?: boolean;
         strategy?: UploadStrategy;
       }>();
     const strategy = requestedStrategy === "single" ? "single" : "multipart";
     const normalizedDigest = contentDigest.toLowerCase();
-    const canForce = force && storage.isMock;
-    const existing = await objectMetadataStore.findByDigest(normalizedDigest);
-    if (existing && !canForce) {
-      return c.json({
-        error: "Object with this content digest already exists",
-        key: existing.key,
-      }, 409);
-    }
-    const pending = uploads.findPendingByDigest(normalizedDigest);
-    if (pending && !canForce) {
-      const retryCount = pending.retryCount + 1;
-      uploads.update(pending.id, { retryCount });
-      const exhausted = retryCount > config.dedupMaxRetries;
-      const response = {
-        error: exhausted
-          ? "An upload with this content digest is still in progress; retry limit reached"
-          : "An upload with this content digest is already in progress",
-        uploadId: pending.id,
-        retryCount,
-        maxRetries: config.dedupMaxRetries,
-        ...(exhausted
-          ? {}
-          : { retryAfterSeconds: config.dedupRetryAfterSeconds }),
-      };
-      return c.json(
-        response,
-        409,
-        exhausted
-          ? undefined
-          : { "Retry-After": String(config.dedupRetryAfterSeconds) },
-      );
-    }
-    if (pending && canForce) {
-      await expireUpload(pending);
-    }
     const id = crypto.randomUUID();
     const key = `uploads/${id}`;
     const now = Date.now();
@@ -355,7 +317,7 @@ export function createUploadHandlers(
 
     const object = await storage.headObject(upload.key);
     if (!object) {
-      uploads.update(upload.id, { status: "failed" });
+      uploads.delete(upload.id);
       return c.json({ error: "Uploaded object does not exist" }, 422);
     }
     const expectedChecksum = sha256HexToBase64(upload.expectedContentDigest);
@@ -365,12 +327,13 @@ export function createUploadHandlers(
       object.ChecksumSHA256 !== expectedChecksum
     ) {
       await storage.deleteObject(upload.key);
-      uploads.update(upload.id, { status: "failed" });
+      uploads.delete(upload.id);
       return c.json({ error: "Uploaded object does not match metadata" }, 422);
     }
 
     const actualDigest = upload.expectedContentDigest;
     const now = Date.now();
+    const retentionMs = config.duplicateRetentionMs ?? 24 * 60 * 60 * 1000;
     const completed = await saveCompletedContent(objectMetadataStore, {
       key: upload.key,
       size: object.ContentLength,
@@ -379,13 +342,11 @@ export function createUploadHandlers(
       etag: object.ETag ?? `"${actualDigest}"`,
       createdAt: upload.createdAt,
       updatedAt: now,
+      uploadId: upload.id,
+      retentionUntil: now + retentionMs,
     });
     const status = completed.status === "duplicate" ? "duplicate" : "complete";
-    uploads.update(upload.id, {
-      status,
-      ...(completed.duplicateOf ? { duplicateOf: completed.duplicateOf } : {}),
-      verifiedAt: now,
-    });
+    uploads.delete(upload.id);
     return c.json({
       uploadId: upload.id,
       status,
@@ -402,7 +363,7 @@ export function createUploadHandlers(
     }
 
     await deleteOrAbortUpload(upload);
-    uploads.update(upload.id, { status: "aborted" });
+    uploads.delete(upload.id);
     return c.json({ uploadId: upload.id, status: "aborted" });
   }
 

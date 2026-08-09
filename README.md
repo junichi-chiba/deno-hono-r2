@@ -18,13 +18,15 @@ mise -E file run dev
 
 It sets `CLOUDFLARE_R2_STORAGE_MODE=mock-file`. Mock signed URLs point back to
 the upload API and store objects and multipart parts under `tmp/db/objects`.
-Completed content metadata (including active, duplicate, and deleted records)
-and upload-attempt records are persisted under `tmp/db`. Storage keys are
-UUID-backed per upload attempt. Content digests are verified at completion using
-the storage provider's SHA-256 checksum metadata rather than downloading the
-object; competing completions retain a duplicate record until the configured
-duplicate retention window expires. Automated tests use the in-memory
-environment:
+Completed content metadata is persisted under `tmp/db/metadata`, keyed by the
+normalized SHA-256 digest. It records all completed upload IDs, the active
+storage key, and duplicate retention state. Upload-attempt records are ephemeral
+lifecycle state and are not persisted. Storage keys are UUID-backed per upload
+attempt. Content digests are verified at completion using the storage provider's
+SHA-256 checksum metadata rather than downloading the object; competing
+completions both succeed, with the first completion active and later completions
+retained as duplicates until the configured retention window expires. Automated
+tests use the in-memory environment:
 
 ```sh
 mise -E test run test
@@ -74,9 +76,10 @@ each part with a JSON body containing that part's `contentDigest`; the response
 contains the matching base64 checksum header value. Clients must send that
 header with each PUT, then submit the part numbers and ETags to the complete
 endpoint. `mock-memory` uses in-memory metadata and upload repositories, while
-`mock-file` uses JSON files under `tmp/db`. R2 currently uses the in-memory
-repositories as a temporary fallback until MongoDB Atlas repositories are
-implemented; this fallback must not be used for multiple Deno Deploy instances.
+`mock-file` uses digest metadata JSON under `tmp/db` and an in-memory upload
+repository. R2 currently uses the in-memory repositories as a temporary fallback
+until a shared metadata repository is implemented; this fallback must not be
+used for multiple Deno Deploy instances.
 
 R2 multipart completion sends the client-provided full-object SHA-256 checksum
 to the S3-compatible API and verifies the returned checksum through

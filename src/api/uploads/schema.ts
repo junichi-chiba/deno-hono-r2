@@ -2,8 +2,6 @@ import { z } from "zod";
 import { UploadPartSchema } from "../../domain/upload.ts";
 export type { UploadPart } from "../../domain/upload.ts";
 
-const DEFAULT_FORCE_FLAG = false;
-
 export function createUploadSchema(
   maxUploadBytes: number,
 ): z.ZodType {
@@ -11,7 +9,6 @@ export function createUploadSchema(
     size: z.number().int().positive().max(maxUploadBytes),
     contentType: z.string().trim().min(1).max(255),
     contentDigest: z.string().trim().regex(/^[\da-f]{64}$/i),
-    force: z.boolean().default(DEFAULT_FORCE_FLAG),
     strategy: z.enum(["auto", "single", "multipart"]).default("multipart"),
   });
 }

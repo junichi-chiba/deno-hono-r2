@@ -25,7 +25,6 @@ if (import.meta.main) {
   console.debug("Storage paths", {
     mode: env.CLOUDFLARE_R2_STORAGE_MODE,
     metadata: `${dbPath}/metadata/objects.json`,
-    uploads: `${dbPath}/uploads/records.json`,
     objects: `${dbPath}/objects`,
     multipart: `${dbPath}/objects/.multipart`,
   });

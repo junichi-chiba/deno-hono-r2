@@ -14,14 +14,12 @@ const PendingUploadContentSchema = ObjectMetadataSchema.pick({
   contentDigest: true,
 });
 
-export const UploadRecordSchema = ObjectMetadataSchema.pick({
-  key: true,
-}).extend({
+export const UploadRecordSchema = z.object({
+  key: z.string().min(1),
   id: z.uuid(),
   expectedSize: PendingUploadContentSchema.shape.size,
   expectedContentType: PendingUploadContentSchema.shape.contentType,
   expectedContentDigest: PendingUploadContentSchema.shape.contentDigest,
-  retryCount: z.number().int().nonnegative().default(0),
   createdAt: z.number().int().nonnegative(),
   lastActivityAt: z.number().int().nonnegative(),
   expiresAt: z.number().int().nonnegative(),

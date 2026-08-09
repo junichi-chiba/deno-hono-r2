@@ -99,11 +99,10 @@ export async function headMockObject(
 }
 
 export async function deleteMockObject(
-  metadataStore: ObjectMetadataStore,
+  _metadataStore: ObjectMetadataStore,
   key: string,
 ): Promise<void> {
   await deleteLocalObject(key);
-  await metadataStore.delete(key);
 }
 
 export async function createMockMultipartUpload(

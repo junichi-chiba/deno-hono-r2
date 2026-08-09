@@ -21,8 +21,6 @@ export function createApp(deps: AppDependencies): Hono {
     uploadUrlTtlMs: 30 * 60 * 1000,
     staleUploadTtlMs: 30 * 60 * 1000,
     maxUploadLifetimeMs: 60 * 60 * 1000,
-    dedupRetryAfterSeconds: 10,
-    dedupMaxRetries: 3,
     duplicateRetentionMs: 24 * 60 * 60 * 1000,
     cleanupCron: "*/15 * * * *",
   };

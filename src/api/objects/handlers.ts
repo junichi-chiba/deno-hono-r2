@@ -24,7 +24,7 @@ export function createObjectHandlers(
       return c.json(
         metadata
           .filter((item) => item.status === "active")
-          .map(({ key }) => ({ key })),
+          .map(({ activeStorageKey: key }) => ({ key })),
       );
     },
     handleGetObject: async (c: Context): Promise<Response> => {
@@ -59,6 +59,7 @@ export function createObjectHandlers(
         etag,
         createdAt: (await objectMetadataStore.find(key))?.createdAt ?? now,
         updatedAt: now,
+        retentionUntil: now + config.duplicateRetentionMs,
       });
       return c.json({ key, etag }, 201);
     },
@@ -67,13 +68,7 @@ export function createObjectHandlers(
       const key = c.req.param("key") ?? "";
       const metadata = await objectMetadataStore.find(key);
       await storage.deleteObject(key);
-      if (metadata) {
-        await objectMetadataStore.save({
-          ...metadata,
-          status: "deleted",
-          updatedAt: Date.now(),
-        });
-      }
+      if (metadata) await objectMetadataStore.markDeleted(key, Date.now());
       return c.body(null, 204);
     },
   };
