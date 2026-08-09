@@ -236,6 +236,52 @@ Deno.test({
 });
 
 Deno.test({
+  name: "deleting a duplicate does not delete the digest record",
+  async fn(): Promise<void> {
+    const metadata = new MemoryObjectMetadataStore();
+    const storage = new MockMemoryStorage();
+    const app = createApp(storage, metadata);
+    const first = await createSingle(app);
+    const second = await createSingle(app);
+    const completions = await Promise.all([first.created, second.created].map(
+      async (upload) => {
+        await app.request(upload.url, {
+          method: "PUT",
+          headers: { "content-type": "text/plain" },
+          body: "hello",
+        });
+        return await app.request(`/api/uploads/${upload.uploadId}/complete`, {
+          method: "POST",
+        });
+      },
+    ));
+    assertEquals(completions.map((response) => response.status), [200, 200]);
+
+    const record = await metadata.findByDigest(digest);
+    const activeKey = record?.activeStorageKey;
+    const duplicate = record?.duplicateStorageKeys[0];
+    if (!activeKey || !duplicate) {
+      throw new Error("Expected duplicate metadata");
+    }
+
+    assertEquals(
+      (await app.request(`/api/objects/${duplicate.key}`, {
+        method: "DELETE",
+      })).status,
+      204,
+    );
+    const updated = await metadata.findByDigest(digest);
+    assertEquals(updated?.status, "active");
+    assertEquals(updated?.activeStorageKey, activeKey);
+    assertEquals(updated?.duplicateStorageKeys[0].status, "deleted");
+    assertEquals(
+      (await app.request(`/api/objects/${activeKey}`)).status,
+      200,
+    );
+  },
+});
+
+Deno.test({
   name: "cleanup removes expired incomplete upload lifecycle state",
   async fn(): Promise<void> {
     const uploads = new MemoryUploadRepository();

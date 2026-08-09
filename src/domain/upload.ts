@@ -27,16 +27,9 @@ export const UploadRecordSchema = z.object({
   multipartUploadId: z.string().min(1).optional(),
   parts: z.array(UploadPartSchema).default([]),
   partChecksums: z.record(z.string(), z.string()).default({}),
-  status: z.enum([
-    "pending",
-    "complete",
-    "duplicate",
-    "failed",
-    "expired",
-    "aborted",
-  ]),
-  duplicateOf: z.string().min(1).optional(),
-  verifiedAt: z.number().int().nonnegative().optional(),
+  // Upload records only exist while an upload is in progress. Terminal
+  // outcomes are represented by digest metadata, not retained here.
+  status: z.literal("pending"),
 });
 
 export type UploadRecord = z.infer<typeof UploadRecordSchema>;

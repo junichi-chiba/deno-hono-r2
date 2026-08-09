@@ -65,17 +65,29 @@ async function readMetadataIndex(): Promise<MetadataIndex> {
         const existing = index[metadata.contentDigest];
         if (!existing) {
           index[metadata.contentDigest] = metadata;
-        } else if (metadata.duplicateStorageKeys.length > 0) {
+        } else {
+          const duplicateStorageKeys = [
+            ...existing.duplicateStorageKeys,
+            ...metadata.duplicateStorageKeys,
+          ].filter((duplicate, position, duplicates) =>
+            duplicates.findIndex((candidate) =>
+              candidate.key === duplicate.key
+            ) ===
+              position
+          );
           index[metadata.contentDigest] = {
-            ...existing,
+            ...(metadata.createdAt < existing.createdAt ? metadata : existing),
             completedUploadIds: [
-              ...existing.completedUploadIds,
-              ...metadata.completedUploadIds,
+              ...new Set([
+                ...existing.completedUploadIds,
+                ...metadata.completedUploadIds,
+              ]),
             ],
-            duplicateStorageKeys: [
-              ...existing.duplicateStorageKeys,
-              ...metadata.duplicateStorageKeys,
-            ],
+            duplicateStorageKeys,
+            status:
+              existing.status === "deleted" || metadata.status === "deleted"
+                ? "deleted"
+                : "active",
             updatedAt: Math.max(existing.updatedAt, metadata.updatedAt),
           };
         }
@@ -96,6 +108,22 @@ async function writeMetadataIndex(index: MetadataIndex): Promise<void> {
 
 export class FileObjectMetadataStore implements ObjectMetadataStore {
   #claims = Promise.resolve();
+
+  async #withClaim<T>(operation: () => Promise<T>): Promise<T> {
+    let release!: () => void;
+    const previous = this.#claims;
+    this.#claims = previous.then(() =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      })
+    );
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+    }
+  }
 
   async save(metadata: ObjectMetadata): Promise<void> {
     const index = await readMetadataIndex();
@@ -124,15 +152,7 @@ export class FileObjectMetadataStore implements ObjectMetadataStore {
   async resolveCompleted(
     content: CompletedContentInput,
   ): Promise<CompletedContentResult> {
-    let release!: () => void;
-    const previous = this.#claims;
-    this.#claims = previous.then(() =>
-      new Promise<void>((resolve) => {
-        release = resolve;
-      })
-    );
-    await previous;
-    try {
+    return await this.#withClaim(async () => {
       const index = await readMetadataIndex();
       const digest = content.contentDigest.toLowerCase();
       const existing = index[digest];
@@ -186,29 +206,41 @@ export class FileObjectMetadataStore implements ObjectMetadataStore {
         status: "duplicate",
         duplicateOf: existing.activeStorageKey,
       };
-    } finally {
-      release();
-    }
+    });
   }
 
   async markDeleted(key: string, updatedAt: number): Promise<void> {
-    const metadata = await this.find(key);
-    if (!metadata) return;
-    await this.save({ ...metadata, status: "deleted", updatedAt });
+    await this.#withClaim(async () => {
+      const metadata = await this.find(key);
+      if (!metadata) return;
+      if (metadata.activeStorageKey === key) {
+        await this.save({ ...metadata, status: "deleted", updatedAt });
+        return;
+      }
+      await this.save({
+        ...metadata,
+        duplicateStorageKeys: metadata.duplicateStorageKeys.map((item) =>
+          item.key === key ? { ...item, status: "deleted" as const } : item
+        ),
+        updatedAt,
+      });
+    });
   }
 
   async removeDuplicate(contentDigest: string, key: string): Promise<void> {
-    const index = await readMetadataIndex();
-    const metadata = index[contentDigest.toLowerCase()];
-    if (!metadata) return;
-    index[metadata.contentDigest] = {
-      ...metadata,
-      duplicateStorageKeys: metadata.duplicateStorageKeys.map((item) =>
-        item.key === key ? { ...item, status: "deleted" as const } : item
-      ),
-      updatedAt: Date.now(),
-    };
-    await writeMetadataIndex(index);
+    await this.#withClaim(async () => {
+      const index = await readMetadataIndex();
+      const metadata = index[contentDigest.toLowerCase()];
+      if (!metadata) return;
+      index[metadata.contentDigest] = {
+        ...metadata,
+        duplicateStorageKeys: metadata.duplicateStorageKeys.map((item) =>
+          item.key === key ? { ...item, status: "deleted" as const } : item
+        ),
+        updatedAt: Date.now(),
+      };
+      await writeMetadataIndex(index);
+    });
   }
 }
 

@@ -68,7 +68,10 @@ export function createObjectHandlers(
       const key = c.req.param("key") ?? "";
       const metadata = await objectMetadataStore.find(key);
       await storage.deleteObject(key);
-      if (metadata) await objectMetadataStore.markDeleted(key, Date.now());
+      if (metadata) {
+        const now = Date.now();
+        await objectMetadataStore.markDeleted(key, now);
+      }
       return c.body(null, 204);
     },
   };

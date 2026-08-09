@@ -113,9 +113,19 @@ export class MemoryObjectMetadataStore implements ObjectMetadataStore {
   async markDeleted(key: string, updatedAt: number): Promise<void> {
     const metadata = await this.find(key);
     if (!metadata) return;
+    if (metadata.activeStorageKey === key) {
+      this.#metadata.set(metadata.contentDigest, {
+        ...metadata,
+        status: "deleted",
+        updatedAt,
+      });
+      return;
+    }
     this.#metadata.set(metadata.contentDigest, {
       ...metadata,
-      status: "deleted",
+      duplicateStorageKeys: metadata.duplicateStorageKeys.map((item) =>
+        item.key === key ? { ...item, status: "deleted" as const } : item
+      ),
       updatedAt,
     });
   }
