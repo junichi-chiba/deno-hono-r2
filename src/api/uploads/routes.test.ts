@@ -60,11 +60,18 @@ Deno.test({
     assertEquals(result.strategy, "single");
     assertMatch(result.key, /^uploads\/[0-9a-f-]{36}$/);
     assertMatch(result.url, /^https?:\/\/.*\/api\/uploads\/mock\//);
+    assertEquals(
+      result.checksumSHA256,
+      "LPJNul+wow4m6DsqxbninhsWHlwfp0JecwQzYpOLmCQ=",
+    );
     assertEquals(typeof result.expiresAt, "number");
 
     const putResponse = await app.request(result.url, {
       method: "PUT",
-      headers: { "content-type": "text/plain" },
+      headers: {
+        "content-type": "text/plain",
+        "x-amz-checksum-sha256": result.checksumSHA256,
+      },
       body: "hello",
     });
     assertEquals(putResponse.status, 200);
@@ -108,13 +115,25 @@ Deno.test({
 
     const partResponse = await app.request(
       `/api/uploads/${upload.uploadId}/parts/1`,
-      { method: "POST" },
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          contentDigest:
+            "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",
+        }),
+      },
     );
     assertEquals(partResponse.status, 200);
     const part = await partResponse.json();
+    assertEquals(
+      part.checksumSHA256,
+      "uU0nuZNNPgilLlLX2n2r+sSE7+N6U4DukIj3rOLvzek=",
+    );
 
     const putResponse = await app.request(part.url, {
       method: "PUT",
+      headers: { "x-amz-checksum-sha256": part.checksumSHA256 },
       body: "hello world",
     });
     assertEquals(putResponse.status, 200);
@@ -179,6 +198,7 @@ Deno.test({
       });
       return await response.json();
     }
+    const FORCE_UPLOAD = true;
 
     const first = await create();
     await app.request(first.url, {
@@ -192,7 +212,7 @@ Deno.test({
     );
     assertEquals((await firstCompletion.json()).status, "complete");
 
-    const second = await create(true);
+    const second = await create(FORCE_UPLOAD);
     await app.request(second.url, {
       method: "PUT",
       headers: { "content-type": "text/plain" },
@@ -266,9 +286,11 @@ Deno.test({
       });
       return created;
     }
+    const NORMAL_UPLOAD = false;
+    const FORCE_UPLOAD = true;
 
-    const first = await upload(false);
-    const duplicate = await upload(true);
+    const first = await upload(NORMAL_UPLOAD);
+    const duplicate = await upload(FORCE_UPLOAD);
     assertEquals(
       (await objectMetadataStore.find(duplicate.key))?.status,
       "duplicate",

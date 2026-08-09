@@ -4,6 +4,8 @@ export type { UploadPart } from "../domain/upload.ts";
 export type ObjectInfo = {
   ContentLength: number;
   ContentType?: string;
+  ETag?: string;
+  ChecksumSHA256?: string;
 };
 
 export type StoredObject = ObjectInfo & {
@@ -13,6 +15,7 @@ export type StoredObject = ObjectInfo & {
 export type SignedObjectUploadInput = {
   key: string;
   contentType: string;
+  checksumSHA256: string;
   expiresInSeconds: number;
 };
 
@@ -20,6 +23,7 @@ export type SignedUploadPartInput = {
   key: string;
   uploadId: string;
   partNumber: number;
+  checksumSHA256?: string;
   expiresInSeconds: number;
 };
 
@@ -44,6 +48,7 @@ export interface ObjectStorage {
     key: string,
     uploadId: string,
     parts: UploadPart[],
+    checksumSHA256?: string,
   ): Promise<void>;
   abortMultipartUpload(key: string, uploadId: string): Promise<void>;
   createSignedUploadUrl(input: SignedObjectUploadInput): Promise<string>;

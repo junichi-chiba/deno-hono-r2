@@ -4,8 +4,8 @@ import type { ObjectStorage } from "../../storage/interfaces.ts";
 import type { UploadRepository } from "../../db/upload-repository.ts";
 import type { ObjectMetadataStore } from "../../domain/ports.ts";
 import { saveCompletedContent } from "../../domain/content.ts";
-import { sha256Hex } from "../../domain/object.ts";
-import { CompleteUploadSchema } from "./schema.ts";
+import { sha256HexToBase64 } from "../../domain/object.ts";
+import { CompleteUploadSchema, CreatePartUploadSchema } from "./schema.ts";
 import type { UploadPart } from "./schema.ts";
 
 type UploadStrategy = "auto" | "single" | "multipart";
@@ -178,6 +178,7 @@ export function createUploadHandlers(
         : await storage.createSignedUploadUrl({
           key: upload.key,
           contentType: upload.expectedContentType,
+          checksumSHA256: sha256HexToBase64(upload.expectedContentDigest),
           expiresInSeconds: Math.floor(config.uploadUrlTtlMs / 1000),
         });
 
@@ -186,6 +187,7 @@ export function createUploadHandlers(
         key: upload.key,
         strategy: upload.strategy,
         url,
+        checksumSHA256: sha256HexToBase64(upload.expectedContentDigest),
         expiresAt: upload.expiresAt,
       }, 201);
     }
@@ -214,6 +216,7 @@ export function createUploadHandlers(
       multipartUploadId: upload.multipartUploadId,
       key: upload.key,
       strategy: upload.strategy,
+      checksumSHA256: sha256HexToBase64(upload.expectedContentDigest),
       expiresAt: upload.expiresAt,
     }, 201);
   }
@@ -239,12 +242,36 @@ export function createUploadHandlers(
       return c.json({ error: "Upload expired" }, 410);
     }
 
+    let checksumSHA256: string | undefined;
+    try {
+      const input = CreatePartUploadSchema.safeParse(await c.req.json());
+      if (!input.success) {
+        return c.json({ error: "Invalid part checksum" }, 400);
+      }
+      const contentDigest = input.data.contentDigest?.toLowerCase();
+      if (contentDigest && input.data.checksumSHA256) {
+        const encodedDigest = sha256HexToBase64(contentDigest);
+        if (encodedDigest !== input.data.checksumSHA256) {
+          return c.json({ error: "Invalid part checksum" }, 400);
+        }
+      }
+      checksumSHA256 = input.data.checksumSHA256 ??
+        (contentDigest ? sha256HexToBase64(contentDigest) : undefined);
+    } catch {
+      if (!storage.isMock) {
+        return c.json({ error: "Multipart part checksum is required" }, 400);
+      }
+    }
+    if (!storage.isMock && !checksumSHA256) {
+      return c.json({ error: "Multipart part checksum is required" }, 400);
+    }
     const url = storage.isMock
       ? mockUploadUrl(c, `${upload.id}/parts/${partNumber}`)
       : await storage.createSignedPartUploadUrl({
         key: upload.key,
         uploadId: upload.multipartUploadId,
         partNumber,
+        checksumSHA256,
         expiresInSeconds: Math.floor(config.uploadUrlTtlMs / 1000),
       });
     const expiresAt = Math.min(
@@ -254,6 +281,14 @@ export function createUploadHandlers(
     uploads.update(upload.id, {
       expiresAt,
       lastActivityAt: Date.now() + config.staleUploadTtlMs,
+      ...(checksumSHA256
+        ? {
+          partChecksums: {
+            ...upload.partChecksums,
+            [String(partNumber)]: checksumSHA256,
+          },
+        }
+        : {}),
     });
 
     return c.json({
@@ -263,6 +298,7 @@ export function createUploadHandlers(
       partNumber,
       url,
       expiresAt,
+      ...(checksumSHA256 ? { checksumSHA256 } : {}),
     });
   }
 
@@ -300,37 +336,47 @@ export function createUploadHandlers(
         partNumbers.add(part.partNumber);
       }
       parts = [...parts].sort((a, b) => a.partNumber - b.partNumber);
+      parts = parts.map((part) => ({
+        ...part,
+        ...(upload.partChecksums[String(part.partNumber)]
+          ? {
+            checksumSHA256: upload.partChecksums[String(part.partNumber)],
+          }
+          : {}),
+      }));
       await storage.completeMultipartUpload(
         upload.key,
         upload.multipartUploadId,
         parts,
+        sha256HexToBase64(upload.expectedContentDigest),
       );
       uploads.update(upload.id, { parts });
     }
 
-    const object = await storage.getObject(upload.key);
+    const object = await storage.headObject(upload.key);
     if (!object) {
       uploads.update(upload.id, { status: "failed" });
       return c.json({ error: "Uploaded object does not exist" }, 422);
     }
-    const actualDigest = await sha256Hex(object.body);
+    const expectedChecksum = sha256HexToBase64(upload.expectedContentDigest);
     if (
       object.ContentLength !== upload.expectedSize ||
       object.ContentType !== upload.expectedContentType ||
-      actualDigest !== upload.expectedContentDigest
+      object.ChecksumSHA256 !== expectedChecksum
     ) {
       await storage.deleteObject(upload.key);
       uploads.update(upload.id, { status: "failed" });
       return c.json({ error: "Uploaded object does not match metadata" }, 422);
     }
 
+    const actualDigest = upload.expectedContentDigest;
     const now = Date.now();
     const completed = await saveCompletedContent(objectMetadataStore, {
       key: upload.key,
       size: object.ContentLength,
       contentType: object.ContentType ?? upload.expectedContentType,
       contentDigest: actualDigest,
-      etag: `"${actualDigest}"`,
+      etag: object.ETag ?? `"${actualDigest}"`,
       createdAt: upload.createdAt,
       updatedAt: now,
     });
@@ -415,6 +461,13 @@ export function createUploadHandlers(
     if (body.byteLength > config.maxUploadBytes) {
       return c.json({ error: "Upload exceeds the configured size limit" }, 413);
     }
+    const checksumSHA256 = c.req.header("x-amz-checksum-sha256");
+    if (
+      checksumSHA256 &&
+      checksumSHA256 !== sha256HexToBase64(upload.expectedContentDigest)
+    ) {
+      return c.json({ error: "Checksum does not match upload metadata" }, 400);
+    }
     const etag = await storage.putObject(
       upload.key,
       body,
@@ -446,6 +499,11 @@ export function createUploadHandlers(
     const body = new Uint8Array(await c.req.raw.arrayBuffer());
     if (body.byteLength > config.maxUploadBytes) {
       return c.json({ error: "Upload exceeds the configured size limit" }, 413);
+    }
+    const checksumSHA256 = c.req.header("x-amz-checksum-sha256");
+    const expectedPartChecksum = upload.partChecksums[String(partNumber)];
+    if (checksumSHA256 && checksumSHA256 !== expectedPartChecksum) {
+      return c.json({ error: "Checksum does not match upload metadata" }, 400);
     }
 
     const etag = await storage.uploadPart(

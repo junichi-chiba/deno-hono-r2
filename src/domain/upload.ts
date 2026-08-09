@@ -4,6 +4,7 @@ import { ObjectMetadataSchema } from "./object.ts";
 export const UploadPartSchema = z.object({
   partNumber: z.number().int().positive().max(10_000),
   etag: z.string().min(1),
+  checksumSHA256: z.string().min(1).optional(),
 });
 export type UploadPart = z.infer<typeof UploadPartSchema>;
 
@@ -27,6 +28,7 @@ export const UploadRecordSchema = ObjectMetadataSchema.pick({
   strategy: z.enum(["single", "multipart"]).default("single"),
   multipartUploadId: z.string().min(1).optional(),
   parts: z.array(UploadPartSchema).default([]),
+  partChecksums: z.record(z.string(), z.string()).default({}),
   status: z.enum([
     "pending",
     "complete",

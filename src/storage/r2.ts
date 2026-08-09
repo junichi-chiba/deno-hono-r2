@@ -72,12 +72,18 @@ export class R2ObjectStorage implements ObjectStorage {
   async headObject(key: string): Promise<ObjectInfo | undefined> {
     try {
       const result = await this.#client.send(
-        new HeadObjectCommand({ Bucket: this.#bucketName, Key: key }),
+        new HeadObjectCommand({
+          Bucket: this.#bucketName,
+          Key: key,
+          ChecksumMode: "ENABLED",
+        }),
       );
       if (result.ContentLength === undefined) return undefined;
       return {
         ContentLength: result.ContentLength,
         ContentType: result.ContentType,
+        ETag: result.ETag,
+        ChecksumSHA256: result.ChecksumSHA256,
       };
     } catch (error) {
       if (isNotFound(error)) return undefined;
@@ -100,6 +106,7 @@ export class R2ObjectStorage implements ObjectStorage {
         Bucket: this.#bucketName,
         Key: key,
         ContentType: contentType,
+        ChecksumAlgorithm: "SHA256",
       }),
     );
     if (!result.UploadId) {
@@ -129,8 +136,14 @@ export class R2ObjectStorage implements ObjectStorage {
     key: string,
     uploadId: string,
     parts: UploadPart[],
+    checksumSHA256?: string,
   ): Promise<void> {
-    await this.completeMultipartUploadForKey(key, uploadId, parts);
+    await this.completeMultipartUploadForKey(
+      key,
+      uploadId,
+      parts,
+      checksumSHA256,
+    );
   }
 
   async abortMultipartUpload(key: string, uploadId: string): Promise<void> {
@@ -144,6 +157,7 @@ export class R2ObjectStorage implements ObjectStorage {
         Bucket: this.#bucketName,
         Key: input.key,
         ContentType: input.contentType,
+        ChecksumSHA256: input.checksumSHA256,
       }),
       { expiresIn: input.expiresInSeconds },
     );
@@ -159,6 +173,9 @@ export class R2ObjectStorage implements ObjectStorage {
         Key: input.key,
         UploadId: input.uploadId,
         PartNumber: input.partNumber,
+        ...(input.checksumSHA256
+          ? { ChecksumSHA256: input.checksumSHA256 }
+          : {}),
       }),
       { expiresIn: input.expiresInSeconds },
     );
@@ -168,6 +185,7 @@ export class R2ObjectStorage implements ObjectStorage {
     key: string,
     uploadId: string,
     parts: UploadPart[],
+    checksumSHA256?: string,
   ): Promise<void> {
     await this.#client.send(
       new CompleteMultipartUploadCommand({
@@ -178,8 +196,14 @@ export class R2ObjectStorage implements ObjectStorage {
           Parts: parts.map((part) => ({
             ETag: part.etag,
             PartNumber: part.partNumber,
+            ...(part.checksumSHA256
+              ? { ChecksumSHA256: part.checksumSHA256 }
+              : {}),
           })),
         },
+        ...(checksumSHA256
+          ? { ChecksumSHA256: checksumSHA256, ChecksumType: "FULL_OBJECT" }
+          : {}),
       }),
     );
   }

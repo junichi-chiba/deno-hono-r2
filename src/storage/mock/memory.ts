@@ -8,6 +8,7 @@ import type {
 import { mockStorageDelay } from "./delay.ts";
 
 import type { UploadPart } from "../../domain/upload.ts";
+import { sha256Base64 } from "../../domain/object.ts";
 
 type MultipartUpload = {
   key: string;
@@ -89,23 +90,27 @@ export class MockMemoryStorage implements ObjectStorage {
     return await bodyEtag(body);
   }
 
-  getObject(key: string): Promise<StoredObject | undefined> {
+  async getObject(key: string): Promise<StoredObject | undefined> {
     const object = this.#objects.get(key);
     if (!object) return Promise.resolve(undefined);
-    return Promise.resolve({
+    return {
       body: object.body.slice(),
       ContentLength: object.body.byteLength,
       ContentType: object.contentType,
-    });
+      ETag: await bodyEtag(object.body),
+      ChecksumSHA256: await sha256Base64(object.body),
+    };
   }
 
-  headObject(key: string): Promise<ObjectInfo | undefined> {
+  async headObject(key: string): Promise<ObjectInfo | undefined> {
     const object = this.#objects.get(key);
     if (!object) return Promise.resolve(undefined);
-    return Promise.resolve({
+    return {
       ContentLength: object.body.byteLength,
       ContentType: object.contentType,
-    });
+      ETag: await bodyEtag(object.body),
+      ChecksumSHA256: await sha256Base64(object.body),
+    };
   }
 
   deleteObject(key: string): Promise<void> {
@@ -137,6 +142,7 @@ export class MockMemoryStorage implements ObjectStorage {
     _key: string,
     uploadId: string,
     parts: UploadPart[],
+    _checksumSHA256?: string,
   ): Promise<void> {
     await mockStorageDelay();
     const upload = this.#multipart.completeMultipartUpload(uploadId, parts);

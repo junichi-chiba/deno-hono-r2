@@ -56,6 +56,16 @@ function add(key) {
   if (!saved.some((item) => item.key === key)) saved.push({key});
   render();
 }
+function digestHex(bytes) {
+  return crypto.subtle.digest("SHA-256", bytes).then((digest) =>
+    [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("")
+  );
+}
+function digestBase64(bytes) {
+  return crypto.subtle.digest("SHA-256", bytes).then((digest) =>
+    btoa(String.fromCharCode(...new Uint8Array(digest)))
+  );
+}
 async function load() {
   const response = await fetch("/api/objects");
   if (!response.ok) throw new Error("Unable to load objects.");
@@ -65,8 +75,8 @@ async function load() {
 }
 async function upload(strategy, force = false, delayMs = 0) {
   const body = new TextEncoder().encode(document.querySelector("#sample").value);
-  const digest = [...new Uint8Array(await crypto.subtle.digest("SHA-256", body))]
-    .map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  const digest = await digestHex(body);
+  const checksumSHA256 = await digestBase64(body);
   status.textContent = "Creating " + strategy + " upload...";
   const createResponse = await fetch("/api/uploads", {method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({size:body.byteLength,contentType:"text/plain",contentDigest:digest,strategy,force})});
   const created = await createResponse.json();
@@ -76,13 +86,13 @@ async function upload(strategy, force = false, delayMs = 0) {
     await new Promise((resolve) => setTimeout(resolve, delayMs));
   }
   if (strategy === "single") {
-    const uploaded = await fetch(created.url, {method:"PUT",headers:{"content-type":"text/plain"},body});
+    const uploaded = await fetch(created.url, {method:"PUT",headers:{"content-type":"text/plain","x-amz-checksum-sha256":checksumSHA256},body});
     if (!uploaded.ok) throw new Error("Single upload failed.");
   } else {
-    const partResponse = await fetch("/api/uploads/" + created.uploadId + "/parts/1", {method:"POST"});
+    const partResponse = await fetch("/api/uploads/" + created.uploadId + "/parts/1", {method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({contentDigest:digest})});
     const part = await partResponse.json();
     if (!partResponse.ok) throw new Error(part.error || "Unable to create upload part.");
-    const uploaded = await fetch(part.url, {method:"PUT",body});
+    const uploaded = await fetch(part.url, {method:"PUT",headers:{"x-amz-checksum-sha256":part.checksumSHA256 || checksumSHA256},body});
     if (!uploaded.ok) throw new Error("Multipart upload failed.");
     const completed = await fetch("/api/uploads/" + created.uploadId + "/complete", {method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({parts:[{partNumber:1,etag:uploaded.headers.get("etag") || part.etag}]})});
     if (!completed.ok) throw new Error("Multipart completion failed.");

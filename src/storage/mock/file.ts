@@ -12,6 +12,7 @@ import type {
   StoredObject,
 } from "../interfaces.ts";
 import { mockStorageDelay } from "./delay.ts";
+import { sha256Base64 } from "../../domain/object.ts";
 
 const multipartDirectory = "tmp/db/objects/.multipart";
 
@@ -77,7 +78,14 @@ export async function headMockObject(
   metadataStore: ObjectMetadataStore,
   key: string,
   contentTypes = new Map<string, string>(),
-): Promise<{ ContentLength: number; ContentType: string } | undefined> {
+): Promise<
+  {
+    ContentLength: number;
+    ContentType: string;
+    ETag: string;
+    ChecksumSHA256: string;
+  } | undefined
+> {
   const body = await readLocalObject(key);
   if (!body) return undefined;
   return {
@@ -85,6 +93,8 @@ export async function headMockObject(
     ContentType: contentTypes.get(key) ??
       (await metadataStore.find(key))?.contentType ??
       "application/octet-stream",
+    ETag: await etag(body),
+    ChecksumSHA256: await sha256Base64(body),
   };
 }
 
@@ -187,6 +197,8 @@ export class MockFileStorage implements ObjectStorage {
       ContentType: this.#contentTypes.get(key) ??
         (await this.metadataStore.find(key))?.contentType ??
         "application/octet-stream",
+      ETag: await etag(body),
+      ChecksumSHA256: await sha256Base64(body),
     };
   }
 
@@ -219,6 +231,7 @@ export class MockFileStorage implements ObjectStorage {
     _key: string,
     uploadId: string,
     parts: { partNumber: number; etag: string }[],
+    _checksumSHA256?: string,
   ): Promise<void> {
     const completed = await completeMockMultipartUpload(
       this.metadataStore,
